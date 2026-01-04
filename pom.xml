@@ -5,7 +5,7 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.1.6</version>
+		<version>3.4.1</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>wo1261931780</groupId>
@@ -23,7 +23,6 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
-			<version>3.2.0</version>
 		</dependency>
 		<!--spring网络WEB-->
 		<!--使用SpringMVC构建Web，包括RESTful，应用程序。使用Apache Tomcat作为默认的嵌入式容器。-->
@@ -31,12 +30,16 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-web</artifactId>
-			<version>3.2.0</version>
 			<!--<scope>test</scope>-->
 			<!--上面的scope表示作用范围-->
 			<!--在没有说明的情况下，scope默认就是compile-->
 			<!--如果我把mysql这些数据库驱动jar包设置为runtime-->
 			<!--那么我在日常使用的过程中，是无法访问这些类的-->
+		</dependency>
+		<!--参数校验-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-validation</artifactId>
 		</dependency>
 		<!--=============================================================================================-->
 		<!--DEVELOPER_TOOLS-->
@@ -46,7 +49,7 @@
 		<dependency>
 			<groupId>org.projectlombok</groupId>
 			<artifactId>lombok</artifactId>
-			<version>1.18.30</version>
+			<version>1.18.36</version>
 			<optional>true</optional>
 			<scope>provided</scope>
 			<!--因为只是源代码中提供了对应的功能-->
@@ -61,7 +64,7 @@
 		<dependency>
 			<groupId>cn.hutool</groupId>
 			<artifactId>hutool-all</artifactId>
-			<version>5.8.23</version>
+			<version>5.8.34</version>
 		</dependency>
 		<!--=============================================================================================-->
 		<!--数据库和jdbc-->
@@ -82,14 +85,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jdbc</artifactId>
-			<version>3.2.0</version>
 		</dependency>
 		<!--MySQL JDBC driver.驱动-->
 		<!--mysql的驱动-->
 		<dependency>
-			<groupId>mysql</groupId>
-			<artifactId>mysql-connector-java</artifactId>
-			<version>8.0.33</version>
+			<groupId>com.mysql</groupId>
+			<artifactId>mysql-connector-j</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 		<!--=============================================================================================-->
@@ -129,25 +130,31 @@
 		<!--没有配置，项目报错，启动失败-->
 		<dependency>
 			<groupId>com.baomidou</groupId>
-			<artifactId>mybatis-plus-boot-starter</artifactId>
-			<version>3.5.4.1</version>
+			<artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+			<version>3.5.9</version>
 		<!--依赖中一共两个jar包-->
 		<!--一个是mybatis和spring整合包-->
 		<!--一个是mybatis包-->
 		</dependency>
-		<!-- mybatis-plus 多数据源 -->
+		<!--mybatis-plus的jsqlparser解析依赖（分页插件需要）-->
+		<dependency>
+			<groupId>com.baomidou</groupId>
+			<artifactId>mybatis-plus-jsqlparser</artifactId>
+			<version>3.5.9</version>
+		</dependency>
+		<!-- mybatis-plus 多数据源（当前项目单数据源，暂时注释） -->
 		<!--目前，多数项目会有多数据源的要求，或者是主从部署的要求，所以我们还需要引入 mybatis-plus 关于多数据源的依赖：-->
-		<dependency>
-			<groupId>com.baomidou</groupId>
-			<artifactId>dynamic-datasource-spring-boot-starter</artifactId>
-			<version>4.2.0</version>
-		</dependency>
-		<!--mybatis-plus的代码生成器-->
-		<dependency>
-			<groupId>com.baomidou</groupId>
-			<artifactId>mybatis-plus-generator</artifactId>
-			<version>3.5.4</version>
-		</dependency>
+		<!--<dependency>-->
+		<!--	<groupId>com.baomidou</groupId>-->
+		<!--	<artifactId>dynamic-datasource-spring-boot3-starter</artifactId>-->
+		<!--	<version>4.3.1</version>-->
+		<!--</dependency>-->
+		<!--mybatis-plus的代码生成器（开发工具，运行时不需要）-->
+		<!--<dependency>-->
+		<!--	<groupId>com.baomidou</groupId>-->
+		<!--	<artifactId>mybatis-plus-generator</artifactId>-->
+		<!--	<version>3.5.9</version>-->
+		<!--</dependency>-->
 
 		<!--生成器对应的模板技术-->
 		<!--Web应用程序：作为为应用程序的视图，展示数据-->
@@ -207,22 +214,58 @@
 		<!--	<version>4.3.0</version>-->
 		<!--</dependency>-->
 
-		<!--swagger文档-->
+		<!--swagger文档 - 使用springdoc-openapi替代springfox（Spring Boot 3兼容）-->
+		<!--访问地址: http://localhost:8000/swagger-ui.html-->
 		<dependency>
-			<groupId>io.springfox</groupId>
-			<artifactId>springfox-swagger2</artifactId>
-			<version>3.0.0</version>
-		</dependency>
-		<dependency>
-			<groupId>io.springfox</groupId>
-			<artifactId>springfox-swagger-ui</artifactId>
-			<version>3.0.0</version>
+			<groupId>org.springdoc</groupId>
+			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+			<version>2.7.0</version>
 		</dependency>
 		<!--正如XPath之于XML文档一样，JsonPath为Json文档提供了解析能力。-->
 		<!--通过使用JsonPath，你可以方便的查找节点、获取想要的数据，JsonPath是Json版的XPath。-->
 		<dependency>
 			<groupId>com.jayway.jsonpath</groupId>
 			<artifactId>json-path</artifactId>
+		</dependency>
+		<!--=============================================================================================-->
+		<!--HTML解析组件-->
+		<!--=============================================================================================-->
+		<!--Jsoup是一个用于解析HTML的Java库，提供了类似jQuery的API-->
+		<!--比正则表达式更健壮，能正确处理各种格式的HTML-->
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.18.3</version>
+		</dependency>
+		<!--=============================================================================================-->
+		<!--缓存组件-->
+		<!--=============================================================================================-->
+		<!--Spring Boot缓存抽象-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-cache</artifactId>
+		</dependency>
+		<!--Caffeine高性能本地缓存-->
+		<dependency>
+			<groupId>com.github.ben-manes.caffeine</groupId>
+			<artifactId>caffeine</artifactId>
+		</dependency>
+		<!--=============================================================================================-->
+		<!--监控和健康检查-->
+		<!--=============================================================================================-->
+		<!--Spring Boot Actuator - 提供健康检查、指标等端点-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-actuator</artifactId>
+		</dependency>
+		<!--=============================================================================================-->
+		<!--Plist解析组件（用于Safari书签）-->
+		<!--=============================================================================================-->
+		<!--dd-plist: 用于解析Apple Property List格式文件-->
+		<dependency>
+			<groupId>com.googlecode.plist</groupId>
+			<artifactId>dd-plist</artifactId>
+			<version>1.28</version>
 		</dependency>
 	</dependencies>
 

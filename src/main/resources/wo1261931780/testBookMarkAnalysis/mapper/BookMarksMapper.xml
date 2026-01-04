@@ -110,7 +110,7 @@
 			 #{item.title,jdbcType=LONGVARCHAR}, #{item.type,jdbcType=VARCHAR}, #{item.lastModified,jdbcType=BIGINT})
 		</foreach>
 	</insert>
-	<insert id="insertOrUpdate" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks">
+	<insert id="customInsertOrUpdate" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks">
 		<!--@mbg.generated-->
 		insert into test_technical.book_marks
 			(id, href, add_date, title, `type`, last_modified)

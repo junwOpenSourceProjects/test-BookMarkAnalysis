@@ -12,7 +12,7 @@ import wo1261931780.testBookMarkAnalysis.entity.BookMarks2;
 *Package:wo1261931780.testBookMarkAnalysis.mapper
 *@author liujiajun_junw
 *@Date 2023-12-17-47  星期日
-*@Description 
+*@Description
 */
 
 @Mapper
@@ -23,7 +23,7 @@ public interface BookMarks2Mapper extends BaseMapper<BookMarks2> {
 
     int batchInsert(@Param("list") List<BookMarks2> list);
 
-    int insertOrUpdate(BookMarks2 record);
+    int customInsertOrUpdate(BookMarks2 record);
 
     int insertOrUpdateSelective(BookMarks2 record);
 }

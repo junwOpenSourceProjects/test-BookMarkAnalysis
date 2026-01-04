@@ -101,25 +101,25 @@
     (id, href, add_date, title, `type`, last_modified)
     values
     <foreach collection="list" item="item" separator=",">
-      (#{item.id,jdbcType=BIGINT}, #{item.href,jdbcType=LONGVARCHAR}, #{item.addDate,jdbcType=BIGINT}, 
+      (#{item.id,jdbcType=BIGINT}, #{item.href,jdbcType=LONGVARCHAR}, #{item.addDate,jdbcType=BIGINT},
         #{item.title,jdbcType=LONGVARCHAR}, #{item.type,jdbcType=VARCHAR}, #{item.lastModified,jdbcType=BIGINT}
         )
     </foreach>
   </insert>
-  <insert id="insertOrUpdate" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks2">
+  <insert id="customInsertOrUpdate" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks2">
     <!--@mbg.generated-->
     insert into test_technical.book_marks2
     (id, href, add_date, title, `type`, last_modified)
     values
-    (#{id,jdbcType=BIGINT}, #{href,jdbcType=LONGVARCHAR}, #{addDate,jdbcType=BIGINT}, 
+    (#{id,jdbcType=BIGINT}, #{href,jdbcType=LONGVARCHAR}, #{addDate,jdbcType=BIGINT},
       #{title,jdbcType=LONGVARCHAR}, #{type,jdbcType=VARCHAR}, #{lastModified,jdbcType=BIGINT}
       )
-    on duplicate key update 
-    id = #{id,jdbcType=BIGINT}, 
-    href = #{href,jdbcType=LONGVARCHAR}, 
-    add_date = #{addDate,jdbcType=BIGINT}, 
-    title = #{title,jdbcType=LONGVARCHAR}, 
-    `type` = #{type,jdbcType=VARCHAR}, 
+    on duplicate key update
+    id = #{id,jdbcType=BIGINT},
+    href = #{href,jdbcType=LONGVARCHAR},
+    add_date = #{addDate,jdbcType=BIGINT},
+    title = #{title,jdbcType=LONGVARCHAR},
+    `type` = #{type,jdbcType=VARCHAR},
     last_modified = #{lastModified,jdbcType=BIGINT}
   </insert>
   <insert id="insertOrUpdateSelective" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks2">
@@ -166,7 +166,7 @@
         #{lastModified,jdbcType=BIGINT},
       </if>
     </trim>
-    on duplicate key update 
+    on duplicate key update
     <trim suffixOverrides=",">
       <if test="id != null">
         id = #{id,jdbcType=BIGINT},

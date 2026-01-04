@@ -1,0 +1,42 @@
+# Git文件
+.git
+.gitignore
+
+# IDE文件
+.idea
+*.iml
+.vscode
+
+# Maven构建输出
+target/
+
+# 日志文件
+*.log
+logs/
+
+# 测试文件
+**/test/
+src/test/
+
+# 文档
+*.md
+!README.md
+docs/
+
+# Docker相关
+Dockerfile*
+docker-compose*
+.docker/
+
+# 环境配置
+.env
+.env.*
+!.env.example
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+
+# macOS
+.DS_Store

@@ -1,92 +1,43 @@
 package wo1261931780.testBookMarkAnalysis.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import io.swagger.annotations.ApiModel;
-import io.swagger.annotations.ApiModelProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
-import java.io.Serializable;
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
-*Created by Intellij IDEA.
-*Project:test-BookMarkAnalysis
-*Package:wo1261931780.testBookMarkAnalysis.entity
-*@author liujiajun_junw
-*@Date 2023-12-17-47  星期日
-*@Description 
-*/
-
-@ApiModel(description="test_technical.book_marks2")
-@Schema
+ * Created by Intellij IDEA.
+ * Project:test-BookMarkAnalysis
+ * Package:wo1261931780.testBookMarkAnalysis.entity
+ *
+ * @author liujiajun_junw
+ * @Date 2023-12-17-47  星期日
+ * @Description 书签实体类（去重后数据表）
+ */
+@Schema(description = "书签实体（去重后数据）")
 @Data
-@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
-@TableName(value = "test_technical.book_marks2")
-public class BookMarks2 implements Serializable {
-    /**
-     * 主键
-     */
-    @TableId(value = "id", type = IdType.AUTO)
-    @ApiModelProperty(value="主键")
-    @Schema(description="主键")
-    private Long id;
-
-    /**
-     * 链接
-     */
-    @TableField(value = "href")
-    @ApiModelProperty(value="链接")
-    @Schema(description="链接")
-    private String href;
-
-    /**
-     * 新增时间
-     */
-    @TableField(value = "add_date")
-    @ApiModelProperty(value="新增时间")
-    @Schema(description="新增时间")
-    private Long addDate;
-
-    /**
-     * 标题
-     */
-    @TableField(value = "title")
-    @ApiModelProperty(value="标题")
-    @Schema(description="标题")
-    private String title;
-
-    /**
-     * 类型
-     */
-    @TableField(value = "`type`")
-    @ApiModelProperty(value="类型")
-    @Schema(description="类型")
-    private String type;
-
-    /**
-     * 最后修改时间
-     */
-    @TableField(value = "last_modified")
-    @ApiModelProperty(value="最后修改时间")
-    @Schema(description="最后修改时间")
-    private Long lastModified;
+@TableName(value = "book_marks2")
+public class BookMarks2 extends BaseBookmark {
 
     private static final long serialVersionUID = 1L;
 
-    public static final String COL_ID = "id";
-
-    public static final String COL_HREF = "href";
-
-    public static final String COL_ADD_DATE = "add_date";
-
-    public static final String COL_TITLE = "title";
-
-    public static final String COL_TYPE = "type";
-
-    public static final String COL_LAST_MODIFIED = "last_modified";
+    /**
+     * 列名常量已移至 {@link BookmarkColumns}
+     * @deprecated 使用 BookmarkColumns.COL_* 替代
+     */
+    @Deprecated
+    public static final String COL_ID = BookmarkColumns.COL_ID;
+    @Deprecated
+    public static final String COL_HREF = BookmarkColumns.COL_HREF;
+    @Deprecated
+    public static final String COL_ADD_DATE = BookmarkColumns.COL_ADD_DATE;
+    @Deprecated
+    public static final String COL_TITLE = BookmarkColumns.COL_TITLE;
+    @Deprecated
+    public static final String COL_TYPE = BookmarkColumns.COL_TYPE;
+    @Deprecated
+    public static final String COL_LAST_MODIFIED = BookmarkColumns.COL_LAST_MODIFIED;
 }
