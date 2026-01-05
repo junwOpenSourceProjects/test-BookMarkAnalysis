@@ -42,12 +42,13 @@ import java.util.stream.Collectors;
  * Package:wo1261931780.testBookMarkAnalysis.service.impl
  *
  * @author liujiajun_junw
- * @Date 2023-11-15-38  星期二
+ * @Date 2023-11-15-38 星期二
  * @Description 书签解析服务实现类
  */
 @Slf4j
 @Service
-public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, BookMarks> implements BookmarksParserService {
+public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, BookMarks>
+		implements BookmarksParserService {
 
 	// ==================== 预编译正则表达式（性能优化，保留作为后备方案） ====================
 	private static final Pattern H3_TAG_PATTERN = Pattern.compile("<H3([^>]*)>");
@@ -76,6 +77,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 	private ResourceLoader resourceLoader;
 
 	@Override
+	@SuppressWarnings("null")
 	public List<BookMarks> parseBookMarks() {
 		List<BookMarks> bookmarkList = new ArrayList<>();
 		try {
@@ -212,7 +214,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	@CacheEvict(value = {CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS}, allEntries = true)
+	@CacheEvict(value = { CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS }, allEntries = true)
 	public ParseResult uploadAndParse(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			throw new BusinessException(400, "上传文件不能为空");
@@ -352,7 +354,8 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 								.append("</A>\n");
 					} else if ("h3".equals(b.getType())) {
 						sb.append("    <DT><H3 ADD_DATE=\"").append(b.getAddDate() != null ? b.getAddDate() : "")
-								.append("\" LAST_MODIFIED=\"").append(b.getLastModified() != null ? b.getLastModified() : "")
+								.append("\" LAST_MODIFIED=\"")
+								.append(b.getLastModified() != null ? b.getLastModified() : "")
 								.append("\">").append(b.getTitle() != null ? escapeHtml(b.getTitle()) : "")
 								.append("</H3>\n");
 					}
@@ -442,7 +445,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	@CacheEvict(value = {CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS}, allEntries = true)
+	@CacheEvict(value = { CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS }, allEntries = true)
 	public ParseResult uploadAndParseWithJsoup(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			throw new BusinessException(400, "上传文件不能为空");
@@ -496,7 +499,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	@CacheEvict(value = {CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS}, allEntries = true)
+	@CacheEvict(value = { CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS }, allEntries = true)
 	public ParseResult uploadAndParseWithSafari(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			throw new BusinessException(400, "上传文件不能为空");
@@ -535,7 +538,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 
 	@Override
 	@Transactional(rollbackFor = Exception.class)
-	@CacheEvict(value = {CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS}, allEntries = true)
+	@CacheEvict(value = { CacheConfig.CACHE_BOOKMARK_ANALYSIS, CacheConfig.CACHE_DOMAIN_STATS }, allEntries = true)
 	public ParseResult uploadAndParseAuto(MultipartFile file) {
 		if (file == null || file.isEmpty()) {
 			throw new BusinessException(400, "上传文件不能为空");

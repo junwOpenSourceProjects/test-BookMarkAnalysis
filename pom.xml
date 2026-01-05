@@ -258,6 +258,12 @@
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
+		<!--Spring Boot Test - 提供JUnit5、MockMvc、Hamcrest等测试框架-->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 		<!--=============================================================================================-->
 		<!--Plist解析组件（用于Safari书签）-->
 		<!--=============================================================================================-->

@@ -17,11 +17,11 @@ import java.util.concurrent.TimeUnit;
  * @author liujiajun_junw
  * @Date 2026-01-04
  * @Description 缓存配置类
- * <p>
- * 使用Caffeine作为本地缓存实现，具有以下特点：
- * 1. 高性能 - 基于W-TinyLFU算法，缓存命中率高
- * 2. 轻量级 - 无需额外部署Redis等中间件
- * 3. 功能丰富 - 支持过期、最大容量、统计等
+ *              <p>
+ *              使用Caffeine作为本地缓存实现，具有以下特点：
+ *              1. 高性能 - 基于W-TinyLFU算法，缓存命中率高
+ *              2. 轻量级 - 无需额外部署Redis等中间件
+ *              3. 功能丰富 - 支持过期、最大容量、统计等
  */
 @Configuration
 @EnableCaching
@@ -35,6 +35,7 @@ public class CacheConfig {
     public static final String CACHE_DOMAIN_STATS = "domainStats";
 
     @Bean
+    @SuppressWarnings("null")
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setCaffeine(caffeineCacheBuilder());
@@ -42,8 +43,7 @@ public class CacheConfig {
         cacheManager.setCacheNames(java.util.List.of(
                 CACHE_BOOKMARK_ANALYSIS,
                 CACHE_BOOKMARK_BY_URL,
-                CACHE_DOMAIN_STATS
-        ));
+                CACHE_DOMAIN_STATS));
         return cacheManager;
     }
 

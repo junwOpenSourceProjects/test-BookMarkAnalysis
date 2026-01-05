@@ -47,7 +47,7 @@ import java.util.List;
  * Package:wo1261931780.testBookMarkAnalysis.controller
  *
  * @author liujiajun_junw
- * @Date 2023-11-15-29  星期二
+ * @Date 2023-11-15-29 星期二
  * @Description 书签管理控制器
  */
 @RestController
@@ -129,6 +129,7 @@ public class ShowMeListController {
 	 * @return 插入结果
 	 */
 	@PostMapping("/insertNewOne")
+	@SuppressWarnings("null")
 	public ShowResult<Boolean> insertNewOne() {
 		List<BookMarks> bookMarksList = new ArrayList<>();
 		List<String> oneUrls = bookMarksMapper.selectAll();
@@ -193,10 +194,12 @@ public class ShowMeListController {
 				FileWriter writer = new FileWriter(outputFile);
 				switch (s.getType()) {
 					case "a":
-						writer.append("<DT><A HREF=\"" + s.getHref() + "\" ADD_DATE=\"" + s.getAddDate() + "\" ICON=\" \">" + s.getTitle() + "</A>\r\n");
+						writer.append("<DT><A HREF=\"" + s.getHref() + "\" ADD_DATE=\"" + s.getAddDate()
+								+ "\" ICON=\" \">" + s.getTitle() + "</A>\r\n");
 						break;
 					case "h3":
-						writer.append("<DT><H3 ADD_DATE=\"" + s.getAddDate() + "\" LAST_MODIFIED=\"" + s.getLastModified() + "\">" + s.getTitle() + "</H3>\r\n");
+						writer.append("<DT><H3 ADD_DATE=\"" + s.getAddDate() + "\" LAST_MODIFIED=\""
+								+ s.getLastModified() + "\">" + s.getTitle() + "</H3>\r\n");
 						break;
 					default:
 						break;
@@ -349,8 +352,7 @@ public class ShowMeListController {
 	@Operation(summary = "检测失效链接", description = "检测数据库中书签链接是否可访问，返回失效链接列表。注意：检测大量链接可能需要较长时间")
 	@GetMapping("/checkLinks")
 	public ShowResult<LinkCheckReport> checkLinks(
-			@Parameter(description = "最大检测数量，0表示不限制，默认100")
-			@RequestParam(defaultValue = "100") @Min(value = 0, message = "数量不能为负数") int limit) {
+			@Parameter(description = "最大检测数量，0表示不限制，默认100") @RequestParam(defaultValue = "100") @Min(value = 0, message = "数量不能为负数") int limit) {
 		log.info("开始检测链接，限制数量: {}", limit);
 		LinkCheckReport report = linkCheckService.checkAllLinks(limit);
 		log.info("链接检测完成，共检测 {} 个，失效 {} 个",
