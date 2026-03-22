@@ -23,21 +23,4 @@ import lombok.NoArgsConstructor;
 public class BookMarks extends BaseBookmark {
 
     private static final long serialVersionUID = 1L;
-
-    /**
-     * 列名常量已移至 {@link BookmarkColumns}
-     * @deprecated 使用 BookmarkColumns.COL_* 替代
-     */
-    @Deprecated
-    public static final String COL_ID = BookmarkColumns.COL_ID;
-    @Deprecated
-    public static final String COL_HREF = BookmarkColumns.COL_HREF;
-    @Deprecated
-    public static final String COL_ADD_DATE = BookmarkColumns.COL_ADD_DATE;
-    @Deprecated
-    public static final String COL_TITLE = BookmarkColumns.COL_TITLE;
-    @Deprecated
-    public static final String COL_TYPE = BookmarkColumns.COL_TYPE;
-    @Deprecated
-    public static final String COL_LAST_MODIFIED = BookmarkColumns.COL_LAST_MODIFIED;
 }

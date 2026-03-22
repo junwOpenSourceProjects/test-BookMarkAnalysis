@@ -1,6 +1,5 @@
 package wo1261931780.testBookMarkAnalysis.service.impl;
 
-import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -26,14 +25,10 @@ import wo1261931780.testBookMarkAnalysis.parser.BookmarkParser;
 import wo1261931780.testBookMarkAnalysis.service.BookMarksService;
 import wo1261931780.testBookMarkAnalysis.service.BookmarksParserService;
 
-import java.io.BufferedReader;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -50,14 +45,6 @@ import java.util.stream.Collectors;
 public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, BookMarks>
 		implements BookmarksParserService {
 
-	// ==================== 预编译正则表达式（性能优化，保留作为后备方案） ====================
-	private static final Pattern H3_TAG_PATTERN = Pattern.compile("<H3([^>]*)>");
-	private static final Pattern A_TAG_PATTERN = Pattern.compile("<A([^>]*)>");
-	private static final Pattern HREF_PATTERN = Pattern.compile("HREF=\"([^\"]+)\"");
-	private static final Pattern ADD_DATE_PATTERN = Pattern.compile("ADD_DATE=\"([^\"]+)\"");
-	private static final Pattern LAST_MODIFIED_PATTERN = Pattern.compile("LAST_MODIFIED=\"([^\"]+)\"");
-	private static final Pattern H3_TITLE_PATTERN = Pattern.compile("\">([^<]+)</H3>");
-	private static final Pattern A_TITLE_PATTERN = Pattern.compile("\">([^<]+)</A>");
 
 	@Autowired
 	private BookMarksService bookMarksService;
@@ -77,35 +64,15 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 	private ResourceLoader resourceLoader;
 
 	@Override
-	@SuppressWarnings("null")
-	public List<BookMarks> parseBookMarks() {
-		List<BookMarks> bookmarkList = new ArrayList<>();
+    public List<BookMarks> parseBookMarks() {
 		try {
-			// 使用配置文件中的路径，支持classpath和绝对路径
 			Resource resource = resourceLoader.getResource(bookmarkConfig.getInputPath());
-			log.info("正在解析书签文件: {}", bookmarkConfig.getInputPath());
-
-			try (BufferedReader reader = new BufferedReader(
-					new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
-				String line;
-				while ((line = reader.readLine()) != null) {
-					log.debug("line:{}", line);
-					if (H3_TAG_PATTERN.matcher(line).find()) {
-						// 处理 <H3> 逻辑（文件夹）
-						parseH3(line, bookmarkList);
-					} else if (A_TAG_PATTERN.matcher(line).find()) {
-						// 处理 <A> 逻辑（书签链接）
-						parseA(line, bookmarkList);
-					}
-				}
-			}
+			log.info("正在使用Jsoup解析书签文件: {}", bookmarkConfig.getInputPath());
+			return jsoupParser.parse(resource.getInputStream());
 		} catch (Exception e) {
 			log.error("解析书签文件失败: {}", e.getMessage(), e);
 			throw new RuntimeException("解析书签文件失败: " + e.getMessage(), e);
 		}
-		// 处理解析结果
-		log.info("解析完成，共解析到 {} 条书签", bookmarkList.size());
-		return bookmarkList;
 	}
 
 	@Override
@@ -117,99 +84,31 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		}
 
 		LambdaQueryWrapper<BookMarks> lambdaQueryWrapper = new LambdaQueryWrapper<>();
-		lambdaQueryWrapper.eq(BookMarks::getHref, url);
-		List<BookMarks> bookMarks = bookMarksService.list(lambdaQueryWrapper);
+		lambdaQueryWrapper.eq(BookMarks::getHref, url)
+				.isNotNull(BookMarks::getAddDate)
+				.orderByAsc(BookMarks::getAddDate)
+				.last("LIMIT 1");
+		BookMarks bookMark = bookMarksService.getOne(lambdaQueryWrapper, false);
 
-		if (bookMarks.isEmpty()) {
+		if (bookMark == null) {
+			LambdaQueryWrapper<BookMarks> fallbackWrapper = new LambdaQueryWrapper<>();
+			fallbackWrapper.eq(BookMarks::getHref, url).last("LIMIT 1");
+			bookMark = bookMarksService.getOne(fallbackWrapper, false);
+		}
+
+		if (bookMark == null) {
 			log.info("未找到URL对应的书签: {}", url);
 			return null;
 		}
 
-		// 使用Comparator.comparingLong优化排序
-		return bookMarks.stream()
-				.filter(b -> b.getAddDate() != null)
-				.min(Comparator.comparingLong(BookMarks::getAddDate))
-				.orElse(bookMarks.get(0));
+		return bookMark;
 	}
 
-	/**
-	 * 解析H3标签（文件夹）
-	 */
-	private void parseH3(String text, List<BookMarks> list) {
-		BookMarks entity = new BookMarks();
-		entity.setType("h3");
 
-		Matcher matcher = HREF_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setHref(matcher.group(1));
-		}
-
-		matcher = ADD_DATE_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setAddDate(Long.valueOf(matcher.group(1)));
-		}
-
-		matcher = LAST_MODIFIED_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setLastModified(Long.valueOf(matcher.group(1)));
-		}
-
-		matcher = H3_TITLE_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setTitle(matcher.group(1));
-		}
-
-		entity.setId(IdUtil.getSnowflakeNextId());
-		log.debug("解析文件夹: {}", entity.getTitle());
-		list.add(entity);
-	}
-
-	/**
-	 * 解析A标签（书签链接）
-	 */
-	private void parseA(String text, List<BookMarks> list) {
-		BookMarks entity = new BookMarks();
-		entity.setType("a");
-
-		Matcher matcher = HREF_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setHref(matcher.group(1));
-		}
-
-		matcher = ADD_DATE_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setAddDate(Long.valueOf(matcher.group(1)));
-		}
-
-		matcher = A_TITLE_PATTERN.matcher(text);
-		if (matcher.find()) {
-			entity.setTitle(matcher.group(1));
-		}
-
-		entity.setId(IdUtil.getSnowflakeNextId());
-		log.debug("解析书签: {}", entity.getTitle());
-		list.add(entity);
-	}
 
 	@Override
 	public List<BookMarks> parseBookMarks(InputStream inputStream) {
-		List<BookMarks> bookmarkList = new ArrayList<>();
-		try (BufferedReader reader = new BufferedReader(
-				new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				if (H3_TAG_PATTERN.matcher(line).find()) {
-					parseH3(line, bookmarkList);
-				} else if (A_TAG_PATTERN.matcher(line).find()) {
-					parseA(line, bookmarkList);
-				}
-			}
-		} catch (Exception e) {
-			log.error("解析书签流失败: {}", e.getMessage(), e);
-			throw new RuntimeException("解析书签失败: " + e.getMessage(), e);
-		}
-		log.info("从输入流解析完成，共解析到 {} 条书签", bookmarkList.size());
-		return bookmarkList;
+		return jsoupParser.parse(inputStream);
 	}
 
 	@Override
@@ -258,23 +157,42 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		log.info("执行书签分析（未命中缓存）");
 		BookmarkAnalysis analysis = new BookmarkAnalysis();
 
-		// 查询所有书签
-		List<BookMarks> allBookmarks = this.list();
-		analysis.setTotalCount(allBookmarks.size());
+		// 1. 统计总量
+		long totalCount = bookMarksService.count();
+		analysis.setTotalCount((int) totalCount);
 
-		// 统计链接和文件夹数量
-		long linkCount = allBookmarks.stream().filter(b -> "a".equals(b.getType())).count();
-		long folderCount = allBookmarks.stream().filter(b -> "h3".equals(b.getType())).count();
+		// 2. 统计链接和文件夹数量
+		LambdaQueryWrapper<BookMarks> aWrapper = new LambdaQueryWrapper<>();
+		aWrapper.eq(BookMarks::getType, "a");
+		long linkCount = bookMarksService.count(aWrapper);
 		analysis.setLinkCount((int) linkCount);
+
+		LambdaQueryWrapper<BookMarks> h3Wrapper = new LambdaQueryWrapper<>();
+		h3Wrapper.eq(BookMarks::getType, "h3");
+		long folderCount = bookMarksService.count(h3Wrapper);
 		analysis.setFolderCount((int) folderCount);
 
-		// 分析重复URL
-		List<BookMarks> links = allBookmarks.stream()
-				.filter(b -> "a".equals(b.getType()) && StrUtil.isNotEmpty(b.getHref()))
-				.collect(Collectors.toList());
+		// 3. 时间范围分析 (避免全表拉取，查询单列聚合或按序查询1条)
+		LambdaQueryWrapper<BookMarks> minDateWrapper = new LambdaQueryWrapper<>();
+		minDateWrapper.isNotNull(BookMarks::getAddDate).gt(BookMarks::getAddDate, 0).orderByAsc(BookMarks::getAddDate).last("LIMIT 1");
+		BookMarks oldest = bookMarksService.getOne(minDateWrapper, false);
+		if (oldest != null) analysis.setEarliestAddDate(oldest.getAddDate());
 
-		Map<String, Long> urlCountMap = links.stream()
-				.collect(Collectors.groupingBy(BookMarks::getHref, Collectors.counting()));
+		LambdaQueryWrapper<BookMarks> maxDateWrapper = new LambdaQueryWrapper<>();
+		maxDateWrapper.isNotNull(BookMarks::getAddDate).gt(BookMarks::getAddDate, 0).orderByDesc(BookMarks::getAddDate).last("LIMIT 1");
+		BookMarks newest = bookMarksService.getOne(maxDateWrapper, false);
+		if (newest != null) analysis.setLatestAddDate(newest.getAddDate());
+
+		// 4. 分析重复URL与域名分布
+		// 仅获取 href 字段，极大降低内存占用
+		LambdaQueryWrapper<BookMarks> hrefWrapper = new LambdaQueryWrapper<>();
+		hrefWrapper.eq(BookMarks::getType, "a").isNotNull(BookMarks::getHref).select(BookMarks::getHref);
+		List<Object> targetUrls = bookMarksService.listObjs(hrefWrapper);
+
+		List<String> linksString = targetUrls.stream().map(Object::toString).filter(StrUtil::isNotEmpty).collect(Collectors.toList());
+
+		Map<String, Long> urlCountMap = linksString.stream()
+				.collect(Collectors.groupingBy(url -> url, Collectors.counting()));
 
 		List<String> duplicateUrls = urlCountMap.entrySet().stream()
 				.filter(e -> e.getValue() > 1)
@@ -284,10 +202,10 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		analysis.setDuplicateUrls(duplicateUrls);
 		analysis.setDuplicateCount(duplicateUrls.size());
 
-		// 域名分布分析（Top 20）
+		// 域名分布分析 (Top 20)
 		Map<String, Integer> domainMap = new LinkedHashMap<>();
-		links.stream()
-				.map(b -> extractDomain(b.getHref()))
+		linksString.stream()
+				.map(this::extractDomain)
 				.filter(StrUtil::isNotEmpty)
 				.collect(Collectors.groupingBy(d -> d, Collectors.counting()))
 				.entrySet().stream()
@@ -295,19 +213,6 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 				.limit(20)
 				.forEach(e -> domainMap.put(e.getKey(), e.getValue().intValue()));
 		analysis.setDomainDistribution(domainMap);
-
-		// 时间范围分析
-		allBookmarks.stream()
-				.filter(b -> b.getAddDate() != null && b.getAddDate() > 0)
-				.mapToLong(BookMarks::getAddDate)
-				.min()
-				.ifPresent(analysis::setEarliestAddDate);
-
-		allBookmarks.stream()
-				.filter(b -> b.getAddDate() != null && b.getAddDate() > 0)
-				.mapToLong(BookMarks::getAddDate)
-				.max()
-				.ifPresent(analysis::setLatestAddDate);
 
 		return analysis;
 	}
@@ -331,9 +236,18 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 	@Override
 	public String exportToHtml() {
 		List<BookMarks> bookmarks = this.list();
-		StringBuilder sb = new StringBuilder();
+		
+		Map<Long, List<BookMarks>> childrenMap = bookmarks.stream()
+				.collect(Collectors.groupingBy(
+						b -> b.getParentId() != null ? b.getParentId() : 0L,
+						Collectors.toList()
+				));
 
-		// Netscape Bookmark File Format 标准头部
+		for (List<BookMarks> list : childrenMap.values()) {
+			list.sort(Comparator.comparing(BookMarks::getSortOrder, Comparator.nullsLast(Comparator.naturalOrder())));
+		}
+
+		StringBuilder sb = new StringBuilder();
 		sb.append("<!DOCTYPE NETSCAPE-Bookmark-file-1>\n");
 		sb.append("<!-- This is an automatically generated file.\n");
 		sb.append("     It will be read and overwritten.\n");
@@ -343,26 +257,36 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		sb.append("<H1>Bookmarks</H1>\n");
 		sb.append("<DL><p>\n");
 
-		// 按添加时间排序
-		bookmarks.stream()
-				.sorted(Comparator.comparing(BookMarks::getAddDate, Comparator.nullsLast(Comparator.naturalOrder())))
-				.forEach(b -> {
-					if ("a".equals(b.getType())) {
-						sb.append("    <DT><A HREF=\"").append(b.getHref() != null ? b.getHref() : "")
-								.append("\" ADD_DATE=\"").append(b.getAddDate() != null ? b.getAddDate() : "")
-								.append("\">").append(b.getTitle() != null ? escapeHtml(b.getTitle()) : "")
-								.append("</A>\n");
-					} else if ("h3".equals(b.getType())) {
-						sb.append("    <DT><H3 ADD_DATE=\"").append(b.getAddDate() != null ? b.getAddDate() : "")
-								.append("\" LAST_MODIFIED=\"")
-								.append(b.getLastModified() != null ? b.getLastModified() : "")
-								.append("\">").append(b.getTitle() != null ? escapeHtml(b.getTitle()) : "")
-								.append("</H3>\n");
-					}
-				});
+		List<BookMarks> rootNodes = childrenMap.getOrDefault(0L, new ArrayList<>());
+		renderHtmlTree(rootNodes, childrenMap, sb, 1);
 
 		sb.append("</DL><p>\n");
 		return sb.toString();
+	}
+
+	private void renderHtmlTree(List<BookMarks> nodes, Map<Long, List<BookMarks>> childrenMap, StringBuilder sb, int depth) {
+		String indent = StrUtil.repeat("    ", depth);
+		for (BookMarks b : nodes) {
+			if ("a".equals(b.getType())) {
+				sb.append(indent).append("<DT><A HREF=\"").append(b.getHref() != null ? escapeHtml(b.getHref()) : "")
+						.append("\" ADD_DATE=\"").append(b.getAddDate() != null ? b.getAddDate() : "")
+						.append("\">").append(b.getTitle() != null ? escapeHtml(b.getTitle()) : "")
+						.append("</A>\n");
+			} else if ("h3".equals(b.getType())) {
+				sb.append(indent).append("<DT><H3 ADD_DATE=\"").append(b.getAddDate() != null ? b.getAddDate() : "")
+						.append("\" LAST_MODIFIED=\"")
+						.append(b.getLastModified() != null ? b.getLastModified() : "")
+						.append("\">").append(b.getTitle() != null ? escapeHtml(b.getTitle()) : "")
+						.append("</H3>\n");
+
+				List<BookMarks> children = childrenMap.get(b.getId());
+				if (children != null && !children.isEmpty()) {
+					sb.append(indent).append("<DL><p>\n");
+					renderHtmlTree(children, childrenMap, sb, depth + 1);
+					sb.append(indent).append("</DL><p>\n");
+				}
+			}
+		}
 	}
 
 	@Override
@@ -377,7 +301,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		List<BookMarks> folders = bookmarks.stream()
 				.filter(b -> "h3".equals(b.getType()))
 				.sorted(Comparator.comparing(BookMarks::getAddDate, Comparator.nullsLast(Comparator.naturalOrder())))
-				.collect(Collectors.toList());
+				.toList();
 
 		if (!folders.isEmpty()) {
 			sb.append("## 文件夹\n\n");
@@ -390,7 +314,7 @@ public class BookmarksParserServiceImpl extends ServiceImpl<BookMarksMapper, Boo
 		List<BookMarks> links = bookmarks.stream()
 				.filter(b -> "a".equals(b.getType()))
 				.sorted(Comparator.comparing(BookMarks::getAddDate, Comparator.nullsLast(Comparator.naturalOrder())))
-				.collect(Collectors.toList());
+				.toList();
 
 		if (!links.isEmpty()) {
 			sb.append("## 书签链接\n\n");

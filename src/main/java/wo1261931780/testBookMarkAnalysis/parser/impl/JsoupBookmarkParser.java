@@ -64,26 +64,64 @@ public class JsoupBookmarkParser implements BookmarkParser {
     private List<BookMarks> parseDocument(Document doc) {
         List<BookMarks> bookmarkList = new ArrayList<>();
 
-        // 解析所有链接 <A> 标签
-        Elements links = doc.select("a[href]");
-        for (Element link : links) {
-            BookMarks bookmark = parseLink(link);
-            if (bookmark != null) {
-                bookmarkList.add(bookmark);
-            }
-        }
+        doc.traverse(new org.jsoup.select.NodeVisitor() {
+            private java.util.Stack<Long> parentStack = new java.util.Stack<>();
+            private java.util.Map<Long, Integer> sortOrderMap = new java.util.HashMap<>();
+            private Long lastH3Id = null;
 
-        // 解析所有文件夹 <H3> 标签
-        Elements folders = doc.select("h3");
-        for (Element folder : folders) {
-            BookMarks bookmark = parseFolder(folder);
-            if (bookmark != null) {
-                bookmarkList.add(bookmark);
-            }
-        }
+            @Override
+            public void head(org.jsoup.nodes.Node node, int depth) {
+                if (node instanceof Element) {
+                    Element el = (Element) node;
+                    String tag = el.tagName().toLowerCase();
 
+                    if ("dl".equals(tag)) {
+                        parentStack.push(lastH3Id);
+                    } else if ("h3".equals(tag)) {
+                        BookMarks folder = parseFolder(el);
+                        if (folder != null) {
+                            Long parentId = parentStack.isEmpty() ? null : parentStack.peek();
+                            int sortOrder = sortOrderMap.getOrDefault(parentId != null ? parentId : 0L, 0);
+
+                            folder.setParentId(parentId);
+                            folder.setSortOrder(sortOrder);
+                            bookmarkList.add(folder);
+
+                            sortOrderMap.put(parentId != null ? parentId : 0L, sortOrder + 1);
+                            lastH3Id = folder.getId();
+                        }
+                    } else if ("a".equals(tag)) {
+                        BookMarks link = parseLink(el);
+                        if (link != null) {
+                            Long parentId = parentStack.isEmpty() ? null : parentStack.peek();
+                            int sortOrder = sortOrderMap.getOrDefault(parentId != null ? parentId : 0L, 0);
+
+                            link.setParentId(parentId);
+                            link.setSortOrder(sortOrder);
+                            bookmarkList.add(link);
+
+                            sortOrderMap.put(parentId != null ? parentId : 0L, sortOrder + 1);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void tail(org.jsoup.nodes.Node node, int depth) {
+                if (node instanceof Element) {
+                    if ("dl".equals(((Element) node).tagName().toLowerCase())) {
+                        if (!parentStack.isEmpty()) {
+                            parentStack.pop();
+                        }
+                    }
+                }
+            }
+        });
+
+        long linkCount = bookmarkList.stream().filter(b -> "a".equals(b.getType())).count();
+        long folderCount = bookmarkList.stream().filter(b -> "h3".equals(b.getType())).count();
         log.info("[Jsoup] 解析完成，共解析到 {} 条书签（链接: {}, 文件夹: {}）",
-                bookmarkList.size(), links.size(), folders.size());
+                bookmarkList.size(), linkCount, folderCount);
         return bookmarkList;
     }
 

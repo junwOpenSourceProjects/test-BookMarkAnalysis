@@ -67,4 +67,18 @@ public abstract class BaseBookmark implements Serializable {
     @TableField(value = "last_modified")
     @Schema(description = "最后修改时间（Unix时间戳）")
     private Long lastModified;
+
+    /**
+     * 父级目录ID
+     */
+    @TableField(value = "parent_id")
+    @Schema(description = "父级目录ID")
+    private Long parentId;
+
+    /**
+     * 排序权重
+     */
+    @TableField(value = "sort_order")
+    @Schema(description = "排序权重")
+    private Integer sortOrder;
 }

@@ -86,12 +86,14 @@ public class SafariBookmarkParser implements BookmarkParser {
      *
      * @param children   子项数组
      * @param bookmarks  结果列表
-     * @param parentName 父文件夹名称
+     * @param parentId   父文件夹ID
      */
-    private void parseChildren(NSArray children, List<BookMarks> bookmarks, String parentName) {
+    private void parseChildren(NSArray children, List<BookMarks> bookmarks, Long parentId) {
         if (children == null) {
             return;
         }
+
+        int sortOrder = 0;
 
         for (NSObject child : children.getArray()) {
             if (!(child instanceof NSDictionary)) {
@@ -105,27 +107,30 @@ public class SafariBookmarkParser implements BookmarkParser {
                 // 书签链接
                 BookMarks bookmark = parseLeaf(item);
                 if (bookmark != null) {
+                    bookmark.setParentId(parentId);
+                    bookmark.setSortOrder(sortOrder++);
                     bookmarks.add(bookmark);
                 }
             } else if (TYPE_LIST.equals(webBookmarkType)) {
                 // 文件夹
                 BookMarks folder = parseFolder(item);
                 if (folder != null) {
+                    folder.setParentId(parentId);
+                    folder.setSortOrder(sortOrder++);
                     bookmarks.add(folder);
                 }
 
                 // 递归解析子项
                 NSArray subChildren = (NSArray) item.get("Children");
                 if (subChildren != null) {
-                    String folderName = folder != null ? folder.getTitle() : parentName;
-                    parseChildren(subChildren, bookmarks, folderName);
+                    Long nextParentId = folder != null ? folder.getId() : parentId;
+                    parseChildren(subChildren, bookmarks, nextParentId);
                 }
             } else if (TYPE_PROXY.equals(webBookmarkType)) {
                 // 代理类型（如阅读列表），递归解析其子项
                 NSArray subChildren = (NSArray) item.get("Children");
                 if (subChildren != null) {
-                    String title = getTitle(item);
-                    parseChildren(subChildren, bookmarks, title);
+                    parseChildren(subChildren, bookmarks, parentId);
                 }
             }
         }
