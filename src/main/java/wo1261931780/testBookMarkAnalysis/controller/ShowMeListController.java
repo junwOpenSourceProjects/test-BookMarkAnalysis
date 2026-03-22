@@ -94,6 +94,12 @@ public class ShowMeListController {
 		return ShowResult.sendSuccess(testPage);
 	}
 
+	@Operation(summary = "查询所有书签", description = "不分页查询所有书签，用于生成前端全量树状图")
+	@GetMapping("/all")
+	public ShowResult<List<BookMarks>> showAll() {
+		return ShowResult.sendSuccess(bookmarksParserService.list());
+	}
+
 	/**
 	 * 新增或者更新一条书签
 	 *
