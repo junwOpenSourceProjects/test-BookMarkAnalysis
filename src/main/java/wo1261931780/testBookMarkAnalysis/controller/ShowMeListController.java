@@ -100,6 +100,49 @@ public class ShowMeListController {
 		return ShowResult.sendSuccess(bookmarksParserService.list());
 	}
 
+	@Operation(summary = "节点移动", description = "用于资源管理器拖拽节点更改所属父级文件夹")
+	@PostMapping("/move")
+	public ShowResult<Boolean> moveNode(@RequestParam Long nodeId, @RequestParam(required = false) Long targetParentId, @RequestParam(defaultValue = "0") Integer sortOrder) {
+		BookMarks bm = new BookMarks();
+		bm.setId(nodeId);
+		// Root drop will send targetParentId as null or 0. Since 0 is usually root context in some structures, handle mapping purely to null if desired, or keep direct sync.
+		bm.setParentId(targetParentId != null && targetParentId == 0 ? null : targetParentId);
+		bm.setSortOrder(sortOrder);
+		boolean result = bookMarksService.updateById(bm);
+		return ShowResult.sendSuccess(result);
+	}
+
+	@Operation(summary = "节点重命名", description = "修改节点标题")
+	@PostMapping("/rename")
+	public ShowResult<Boolean> renameNode(@RequestParam Long nodeId, @RequestParam String newTitle) {
+		BookMarks bm = new BookMarks();
+		bm.setId(nodeId);
+		bm.setTitle(newTitle);
+		boolean result = bookMarksService.updateById(bm);
+		return ShowResult.sendSuccess(result);
+	}
+
+	@Operation(summary = "新建文件夹", description = "在指定父级下创建同级新目录")
+	@PostMapping("/createFolder")
+	public ShowResult<BookMarks> createFolder(@RequestParam(required = false) Long parentId, @RequestParam String folderName) {
+		BookMarks folder = new BookMarks();
+		folder.setId(cn.hutool.core.util.IdUtil.getSnowflakeNextId());
+		folder.setParentId(parentId != null && parentId == 0 ? null : parentId);
+		folder.setTitle(folderName);
+		folder.setType("h3");
+		folder.setAddDate(System.currentTimeMillis() / 1000);
+		folder.setLastModified(System.currentTimeMillis() / 1000);
+		bookMarksService.save(folder);
+		return ShowResult.sendSuccess(folder);
+	}
+
+	@Operation(summary = "批量删除", description = "一键删除选定的多个节点资源")
+	@PostMapping("/deleteNodes")
+	public ShowResult<Boolean> deleteNodes(@RequestBody List<Long> nodeIds) {
+		boolean result = bookMarksService.removeByIds(nodeIds);
+		return ShowResult.sendSuccess(result);
+	}
+
 	/**
 	 * 新增或者更新一条书签
 	 *
