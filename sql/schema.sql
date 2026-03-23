@@ -19,9 +19,9 @@ USE `bookmarks`;
 DROP TABLE IF EXISTS `book_marks`;
 CREATE TABLE `book_marks` (
     `id` BIGINT NOT NULL COMMENT '主键ID（雪花ID，后端生成）',
-    `href` VARCHAR(2048) DEFAULT NULL COMMENT '链接地址',
+    `href` LONGTEXT DEFAULT NULL COMMENT '链接地址',
     `add_date` BIGINT DEFAULT NULL COMMENT '添加时间（Unix时间戳）',
-    `title` VARCHAR(512) DEFAULT NULL COMMENT '书签标题',
+    `title` TEXT DEFAULT NULL COMMENT '书签标题',
     `type` VARCHAR(10) DEFAULT NULL COMMENT '类型：a-链接，h3-文件夹',
     `parent_id` BIGINT DEFAULT NULL COMMENT '父级目录ID（关联本表主键）',
     `sort_order` INT DEFAULT 0 COMMENT '排序权重',
@@ -44,9 +44,9 @@ CREATE TABLE `book_marks` (
 DROP TABLE IF EXISTS `book_marks2`;
 CREATE TABLE `book_marks2` (
     `id` BIGINT NOT NULL COMMENT '主键ID（雪花ID，后端生成）',
-    `href` VARCHAR(2048) DEFAULT NULL COMMENT '链接地址',
+    `href` LONGTEXT DEFAULT NULL COMMENT '链接地址',
     `add_date` BIGINT DEFAULT NULL COMMENT '添加时间（Unix时间戳）',
-    `title` VARCHAR(512) DEFAULT NULL COMMENT '书签标题',
+    `title` TEXT DEFAULT NULL COMMENT '书签标题',
     `type` VARCHAR(10) DEFAULT NULL COMMENT '类型：a-链接，h3-文件夹',
     `parent_id` BIGINT DEFAULT NULL COMMENT '父级目录ID（关联本表主键）',
     `sort_order` INT DEFAULT 0 COMMENT '排序权重',

@@ -3,26 +3,29 @@
 <mapper namespace="wo1261931780.testBookMarkAnalysis.mapper.BookMarksMapper">
 	<resultMap id="BaseResultMap" type="wo1261931780.testBookMarkAnalysis.entity.BookMarks">
 		<!--@mbg.generated-->
-		<!--@Table test_technical.book_marks-->
+		<!--@Table book_marks-->
 		<id column="id" jdbcType="BIGINT" property="id"/>
 		<result column="href" jdbcType="LONGVARCHAR" property="href"/>
 		<result column="add_date" jdbcType="BIGINT" property="addDate"/>
 		<result column="title" jdbcType="LONGVARCHAR" property="title"/>
 		<result column="type" jdbcType="VARCHAR" property="type"/>
 		<result column="last_modified" jdbcType="BIGINT" property="lastModified"/>
+		<result column="parent_id" jdbcType="BIGINT" property="parentId"/>
+		<result column="sort_order" jdbcType="INTEGER" property="sortOrder"/>
 	</resultMap>
 	<sql id="Base_Column_List">
-		<!--@mbg.generated-->
 		id,
 		href,
 		add_date,
 		title,
 		`type`,
-		last_modified
+		last_modified,
+		parent_id,
+		sort_order
 	</sql>
 	<update id="updateBatch" parameterType="java.util.List">
 		<!--@mbg.generated-->
-		update test_technical.book_marks
+		update book_marks
 		<trim prefix="set" suffixOverrides=",">
 			<trim prefix="href = case" suffix="end,">
 				<foreach collection="list" index="index" item="item">
@@ -57,7 +60,7 @@
 	</update>
 	<update id="updateBatchSelective" parameterType="java.util.List">
 		<!--@mbg.generated-->
-		update test_technical.book_marks
+		update book_marks
 		<trim prefix="set" suffixOverrides=",">
 			<trim prefix="href = case" suffix="end,">
 				<foreach collection="list" index="index" item="item">
@@ -102,30 +105,32 @@
 	</update>
 	<insert id="batchInsert" parameterType="map">
 		<!--@mbg.generated-->
-		insert into test_technical.book_marks
-			(id, href, add_date, title, `type`, last_modified)
+		insert into book_marks
+			(id, href, add_date, title, `type`, last_modified, parent_id, sort_order)
 		values
 		<foreach collection="list" item="item" separator=",">
 			(#{item.id,jdbcType=BIGINT}, #{item.href,jdbcType=LONGVARCHAR}, #{item.addDate,jdbcType=BIGINT},
-			 #{item.title,jdbcType=LONGVARCHAR}, #{item.type,jdbcType=VARCHAR}, #{item.lastModified,jdbcType=BIGINT})
+			 #{item.title,jdbcType=LONGVARCHAR}, #{item.type,jdbcType=VARCHAR}, #{item.lastModified,jdbcType=BIGINT}, #{item.parentId,jdbcType=BIGINT}, #{item.sortOrder,jdbcType=INTEGER})
 		</foreach>
 	</insert>
 	<insert id="customInsertOrUpdate" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks">
 		<!--@mbg.generated-->
-		insert into test_technical.book_marks
-			(id, href, add_date, title, `type`, last_modified)
+		insert into book_marks
+			(id, href, add_date, title, `type`, last_modified, parent_id, sort_order)
 		values (#{id,jdbcType=BIGINT}, #{href,jdbcType=LONGVARCHAR}, #{addDate,jdbcType=BIGINT},
-		        #{title,jdbcType=LONGVARCHAR}, #{type,jdbcType=VARCHAR}, #{lastModified,jdbcType=BIGINT})
+		        #{title,jdbcType=LONGVARCHAR}, #{type,jdbcType=VARCHAR}, #{lastModified,jdbcType=BIGINT}, #{parentId,jdbcType=BIGINT}, #{sortOrder,jdbcType=INTEGER})
 		on duplicate key update id            = #{id,jdbcType=BIGINT},
 		                        href          = #{href,jdbcType=LONGVARCHAR},
 		                        add_date      = #{addDate,jdbcType=BIGINT},
 		                        title         = #{title,jdbcType=LONGVARCHAR},
 		                        `type`        = #{type,jdbcType=VARCHAR},
-		                        last_modified = #{lastModified,jdbcType=BIGINT}
+		                        last_modified = #{lastModified,jdbcType=BIGINT},
+		                        parent_id     = #{parentId,jdbcType=BIGINT},
+		                        sort_order    = #{sortOrder,jdbcType=INTEGER}
 	</insert>
 	<insert id="insertOrUpdateSelective" parameterType="wo1261931780.testBookMarkAnalysis.entity.BookMarks">
 		<!--@mbg.generated-->
-		insert into test_technical.book_marks
+		insert into book_marks
 		<trim prefix="(" suffix=")" suffixOverrides=",">
 			<if test="id != null">
 				id,
@@ -191,14 +196,14 @@
 	</insert>
 	<select id="selectAll" resultType="java.lang.String">
 		select distinct(href) as href
-		from test_technical.book_marks
+		from book_marks
 		where href is not null
 		order by href;
 	</select>
 
 	<select id="batchInsert2" parameterType="map" resultType="java.lang.Integer">
 		<!--@mbg.generated-->
-		insert into test_technical.book_marks2
+		insert into book_marks2
 			(id, href, add_date, title, `type`, last_modified)
 		values
 		<foreach collection="list" item="item" separator=",">
@@ -209,7 +214,7 @@
 
 	<select id="selectAllH3" resultMap="BaseResultMap">
 		SELECT *
-		FROM test_technical.book_marks
+		FROM book_marks
 		WHERE href IS NULL
 		order by title;
 	</select>
