@@ -40,6 +40,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Created by Intellij IDEA.
@@ -141,6 +143,140 @@ public class ShowMeListController {
 	public ShowResult<Boolean> deleteNodes(@RequestBody List<Long> nodeIds) {
 		boolean result = bookMarksService.removeByIds(nodeIds);
 		return ShowResult.sendSuccess(result);
+	}
+
+	@Operation(summary = "工具箱：一键归档失效链接", description = "将选定的失效节点统一移动到系统预设的保留文件夹下")
+	@PostMapping("/toolbox/archiveDeadLinks")
+	public ShowResult<Boolean> archiveDeadLinks(@RequestBody List<Long> nodeIds) {
+		if (nodeIds == null || nodeIds.isEmpty()) return ShowResult.sendSuccess(true);
+		
+		// 查找或者创建系统隔离文件夹
+		String archiveName = "[系统归档] 疑似失联区 (404 Archive)";
+		BookMarks archiveFolder = bookMarksService.getOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>()
+				.eq(BookMarks::getType, "h3")
+				.eq(BookMarks::getTitle, archiveName)
+				.last("LIMIT 1"));
+				
+		Long archiveId;
+		if (archiveFolder == null) {
+			archiveFolder = new BookMarks();
+			archiveFolder.setId(cn.hutool.core.util.IdUtil.getSnowflakeNextId());
+			archiveFolder.setParentId(null); // Root级别
+			archiveFolder.setTitle(archiveName);
+			archiveFolder.setType("h3");
+			archiveFolder.setAddDate(System.currentTimeMillis() / 1000);
+			archiveFolder.setLastModified(System.currentTimeMillis() / 1000);
+			bookMarksService.save(archiveFolder);
+			archiveId = archiveFolder.getId();
+		} else {
+			archiveId = archiveFolder.getId();
+		}
+		
+		// 执行批量父级归属变更
+		com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<BookMarks> updateWrapper = new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<>();
+		updateWrapper.in(BookMarks::getId, nodeIds).set(BookMarks::getParentId, archiveId);
+		boolean result = bookMarksService.update(updateWrapper);
+		
+		return ShowResult.sendSuccess(result);
+	}
+
+	@Operation(summary = "工具箱：格式化清空", description = "高危：清空所有书签记录")
+	@PostMapping("/toolbox/reset")
+	public ShowResult<Boolean> resetDb() {
+		// using remove with empty wrapper to delete all safely via Mybatis-plus
+		bookMarksService.remove(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>());
+		return ShowResult.sendSuccess(true);
+	}
+
+	@Operation(summary = "工具箱：一键去重", description = "查找所有重复 href 的链接，保留最早的记录，删除其他")
+	@PostMapping("/toolbox/deduplicate")
+	public ShowResult<Boolean> deduplicate() {
+		List<BookMarks> all = bookMarksService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>().isNotNull(BookMarks::getHref));
+		Map<String, List<BookMarks>> grouped = all.stream().collect(Collectors.groupingBy(BookMarks::getHref));
+		List<Long> idsToDelete = new ArrayList<>();
+		for (List<BookMarks> group : grouped.values()) {
+			if (group.size() > 1) {
+				group.sort(Comparator.comparing(BookMarks::getAddDate, Comparator.nullsLast(Long::compareTo)));
+				// 保留最老的一个，也就是排序后的第一个
+				for (int i = 1; i < group.size(); i++) {
+					idsToDelete.add(group.get(i).getId());
+				}
+			}
+		}
+		if (!idsToDelete.isEmpty()) {
+			// 分批清除兜底
+			bookMarksService.removeByIds(idsToDelete);
+		}
+		return ShowResult.sendSuccess(true);
+	}
+
+	@Autowired
+	private wo1261931780.testBookMarkAnalysis.service.BookmarkCategorizationService aiCategorizationService;
+
+	@Operation(summary = "工具箱：智能分类补全", description = "使用大语言模型为书签提供归类建议")
+	@PostMapping("/toolbox/ai/categorize")
+	public ShowResult<List<Map<String, Object>>> aiCategorize(@RequestBody Map<String, Object> req) {
+		try {
+			String apiBaseUrl = (String) req.get("apiBaseUrl");
+			String apiKey = (String) req.get("apiKey");
+			String modelName = (String) req.get("modelName");
+			List<?> rawIds = (List<?>) req.get("bookmarkIds");
+			List<Long> bookmarkIds = rawIds.stream()
+					.map(Object::toString)
+					.map(Long::parseLong)
+					.collect(Collectors.toList());
+
+			List<Map<String, Object>> result = aiCategorizationService.categorizeBookmarks(apiBaseUrl, apiKey, modelName, bookmarkIds);
+			return ShowResult.sendSuccess(result);
+		} catch (Exception e) {
+			log.error("AI 分类异常", e);
+			return ShowResult.sendError("AI 分析失败: " + e.getMessage());
+		}
+	}
+
+	@Operation(summary = "工具箱：清理空壳文件夹", description = "递归扫描并删除没有任何所属子元素的空文件夹")
+	@PostMapping("/toolbox/clearEmptyFolders")
+	public ShowResult<Integer> clearEmptyFolders() {
+		int totalDeleted = 0;
+		while (true) {
+			List<BookMarks> folders = bookMarksService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>().eq(BookMarks::getType, "h3"));
+			List<Long> emptyFolderIds = new ArrayList<>();
+			for (BookMarks folder : folders) {
+				long childCount = bookMarksService.count(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>().eq(BookMarks::getParentId, folder.getId()));
+				if (childCount == 0) {
+					emptyFolderIds.add(folder.getId());
+				}
+			}
+			if (emptyFolderIds.isEmpty()) {
+				break;
+			}
+			bookMarksService.removeByIds(emptyFolderIds);
+			totalDeleted += emptyFolderIds.size();
+		}
+		return ShowResult.sendSuccess(totalDeleted);
+	}
+
+	@Autowired
+	private wo1261931780.testBookMarkAnalysis.service.DeadLinkScannerService deadLinkScannerService;
+
+	@Operation(summary = "工具箱：启动死链探针", description = "异步使用虚拟线程扫描全网死链")
+	@PostMapping("/toolbox/scanDeadLinks/start")
+	public ShowResult<Boolean> startDeadLinkScan() {
+		deduplicate();
+		clearEmptyFolders();
+		List<BookMarks> links = bookMarksService.list(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>().eq(BookMarks::getType, "a").isNotNull(BookMarks::getHref));
+		boolean started = deadLinkScannerService.startScan(links);
+		if (started) {
+			return ShowResult.sendSuccess(true);
+		} else {
+			return ShowResult.sendError("探针任务已经在运行中");
+		}
+	}
+
+	@Operation(summary = "工具箱：巡检扫描进度", description = "获取死链探针的任务进度和结果")
+	@GetMapping("/toolbox/scanDeadLinks/progress")
+	public ShowResult<Map<String, Object>> getScanProgress() {
+		return ShowResult.sendSuccess(deadLinkScannerService.getProgress());
 	}
 
 	/**

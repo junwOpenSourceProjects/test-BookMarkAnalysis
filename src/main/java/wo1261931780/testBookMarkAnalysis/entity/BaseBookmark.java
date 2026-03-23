@@ -31,6 +31,7 @@ public abstract class BaseBookmark implements Serializable {
      */
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     @Schema(description = "主键ID（雪花ID）")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private Long id;
 
     /**
@@ -73,6 +74,7 @@ public abstract class BaseBookmark implements Serializable {
      */
     @TableField(value = "parent_id")
     @Schema(description = "父级目录ID")
+    @com.fasterxml.jackson.databind.annotation.JsonSerialize(using = com.fasterxml.jackson.databind.ser.std.ToStringSerializer.class)
     private Long parentId;
 
     /**
