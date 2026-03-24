@@ -234,6 +234,32 @@ public class ShowMeListController {
 		}
 	}
 
+	@Operation(summary = "全局托管初始化", description = "清空旧分类结构，预备生成人工交互批次")
+	@PostMapping("/toolbox/ai/reconstructTree/init")
+	public ShowResult<Map<String, Object>> initReconstructTree() {
+		return ShowResult.sendSuccess(aiCategorizationService.initReconstructTree());
+	}
+
+	@Operation(summary = "获取下一批建议", description = "调用AI同步返回几十条归类推荐供人工确认")
+	@PostMapping("/toolbox/ai/reconstructTree/nextBatch")
+	public ShowResult<List<Map<String, Object>>> fetchNextBatch(@RequestBody Map<String, Object> req) {
+		String apiBaseUrl = (String) req.get("apiBaseUrl");
+		String apiKey = (String) req.get("apiKey");
+		String modelName = (String) req.get("modelName");
+		try {
+			return ShowResult.sendSuccess(aiCategorizationService.fetchNextBatch(apiBaseUrl, apiKey, modelName));
+		} catch (Exception e) {
+			log.error("AI 批次请求异常", e);
+			return ShowResult.sendError(e.getMessage());
+		}
+	}
+
+	@Operation(summary = "用户手动确认落库", description = "确认当前批次并立即生效入库")
+	@PostMapping("/toolbox/ai/reconstructTree/confirmBatch")
+	public ShowResult<Map<String, Object>> confirmBatch(@RequestBody List<Map<String, Object>> mappings) {
+		return ShowResult.sendSuccess(aiCategorizationService.confirmBatch(mappings));
+	}
+
 	@Operation(summary = "工具箱：清理空壳文件夹", description = "递归扫描并删除没有任何所属子元素的空文件夹")
 	@PostMapping("/toolbox/clearEmptyFolders")
 	public ShowResult<Integer> clearEmptyFolders() {
