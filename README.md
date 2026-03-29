@@ -1,46 +1,93 @@
 # 📚 BookMarkAnalysis - 浏览器书签解析系统
 
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
-[![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5.9-blue.svg)](https://baomidou.com/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen.svg)
+![MyBatis-Plus](https://img.shields.io/badge/MyBatis--Plus-3.5.9-blue.svg)
+![License](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)
 
-一个功能完整的浏览器书签解析、存储、分析和导出系统。支持 Chrome、Firefox、Edge、Safari 等主流浏览器的书签文件解析。
+> 一个功能完整的浏览器书签解析、存储、分析和导出系统
 
----
+## 📖 项目简介
+
+BookMarkAnalysis 是一个功能完整的浏览器书签解析系统,支持 Chrome、Firefox、Edge、Safari 等主流浏览器的书签文件解析。系统提供了书签解析、存储、分析、导出等完整功能,支持 Docker 容器化部署。
+
+## 🏗️ 系统架构
+
+```mermaid
+graph TB
+    subgraph Input[输入层]
+        Chrome[Chrome书签<br/>HTML格式]
+        Firefox[Firefox书签<br/>HTML格式]
+        Edge[Edge书签<br/>HTML格式]
+        Safari[Safari书签<br/>Plist格式]
+    end
+    
+    subgraph Parser[解析层]
+        HTMLParser[HTML解析器<br/>Jsoup]
+        PlistParser[Plist解析器<br/>dd-plist]
+        Validator[格式验证]
+    end
+    
+    subgraph Service[服务层 Spring Boot 3.4.1]
+        UploadService[文件上传服务]
+        ParseService[解析服务]
+        AnalysisService[统计分析服务]
+        ExportService[导出服务]
+        CheckService[链接检测服务]
+    end
+    
+    subgraph Storage[存储层]
+        MySQL[(MySQL 8.x<br/>书签数据)]
+        Cache[(Caffeine<br/>本地缓存)]
+    end
+    
+    subgraph Features[核心功能]
+        Stats[统计分析<br/>域名分布]
+        Duplicate[去重检测]
+        LinkCheck[链接有效性检测]
+        Export[多格式导出]
+    end
+    
+    Input --> Parser
+    Parser --> Service
+    Service --> Storage
+    Service --> Features
+    
+    style Input fill:#e1f5ff
+    style Parser fill:#fff4e6
+    style Service fill:#f0f9ff
+    style Storage fill:#f3f9ff
+    style Features fill:#f0fff4
+```
 
 ## ✨ 功能特性
 
 | 功能 | 说明 |
 |------|------|
-| 🔍 多格式解析 | 支持 HTML（Chrome/Firefox/Edge）和 plist（Safari）格式 |
-| 📤 文件上传 | 通过 API 上传书签文件并自动解析入库 |
-| 📊 统计分析 | 域名分布、重复检测、时间范围统计 |
-| 🔗 链接检测 | 同步/异步检测书签链接是否可访问 |
-| 📥 多格式导出 | 支持 HTML、Markdown、JSON 格式导出 |
-| 🗂️ 书签去重 | 自动识别并处理重复书签 |
-| 🐳 Docker 部署 | 一键容器化部署，开箱即用 |
-
----
+| 🔍 **多格式解析** | 支持 HTML(Chrome/Firefox/Edge)和 plist(Safari)格式 |
+| 📤 **文件上传** | 通过 API 上传书签文件并自动解析入库 |
+| 📊 **统计分析** | 域名分布、重复检测、时间范围统计 |
+| 🔗 **链接检测** | 同步/异步检测书签链接是否可访问 |
+| 📥 **多格式导出** | 支持 HTML、Markdown、JSON 格式导出 |
+| 🗂️ **书签去重** | 自动识别并处理重复书签 |
+| 🐳 **Docker部署** | 一键容器化部署,开箱即用 |
 
 ## 🛠️ 技术栈
 
 | 技术 | 版本 | 说明 |
 |------|------|------|
-| Spring Boot | 3.4.1 | Web 框架 |
-| MyBatis-Plus | 3.5.9 | ORM 框架 |
-| MySQL | 8.x | 数据库 |
-| Jsoup | 1.18.3 | HTML 解析 |
-| dd-plist | 1.28 | Safari plist 解析 |
-| Caffeine | - | 本地缓存 |
-| springdoc-openapi | 2.7.0 | API 文档 |
-| Hutool | 5.8.34 | 工具库 |
-| Docker | - | 容器化部署 |
-
----
+| **Spring Boot** | 3.4.1 | Web框架 |
+| **MyBatis-Plus** | 3.5.9 | ORM框架 |
+| **MySQL** | 8.x | 数据库 |
+| **Jsoup** | 1.18.3 | HTML解析 |
+| **dd-plist** | 1.28 | Safari plist解析 |
+| **Caffeine** | - | 本地缓存 |
+| **springdoc-openapi** | 2.7.0 | API文档 |
+| **Hutool** | 5.8.34 | 工具库 |
+| **Docker** | - | 容器化部署 |
 
 ## 🚀 快速开始
 
-### 方式一：Docker 部署（推荐）
+### 方式一:Docker部署(推荐)
 
 ```bash
 # 1. 克隆项目
@@ -50,360 +97,325 @@ cd test-BookMarkAnalysis
 # 2. 复制环境变量配置
 cp .env.example .env
 
-# 3. 启动服务（MySQL + 应用）
-docker-compose up -d --build
+# 3. 启动服务
+docker-compose up -d
 
-# 4. 查看日志
-docker-compose logs -f app
-
-# 5. 访问服务
-# API 文档：http://localhost:8000/swagger-ui.html
-# 健康检查：http://localhost:8000/actuator/health
+# 4. 访问应用
+# API地址: http://localhost:8080
+# API文档: http://localhost:8080/swagger-ui.html
 ```
 
-**可选：启用 Redis 缓存**
-```bash
-docker-compose --profile redis up -d --build
-```
-
-### 方式二：本地开发
-
-#### 1. 环境要求
-
-- JDK 17+
-- Maven 3.6+
-- MySQL 8.x
-
-#### 2. 数据库初始化
+### 方式二:本地开发
 
 ```bash
-# 连接 MySQL 执行建表脚本
-mysql -u root -p < sql/schema.sql
+# 1. 克隆项目
+git clone https://github.com/junwOpenSourceProjects/test-BookMarkAnalysis.git
+cd test-BookMarkAnalysis
+
+# 2. 创建数据库
+CREATE DATABASE bookmark_analysis;
+
+# 3. 修改配置
+# 编辑 application.yml 配置数据库连接
+
+# 4. 运行项目
+mvn clean install
+mvn spring-boot:run
 ```
-
-或手动创建数据库：
-```sql
-CREATE DATABASE bookmarks DEFAULT CHARACTER SET utf8mb4;
-```
-
-#### 3. 修改配置
-
-编辑 `src/main/resources/application.yml`：
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/bookmarks?useUnicode=true&characterEncoding=utf-8
-    username: your_username
-    password: your_password
-```
-
-#### 4. 运行项目
-
-```bash
-# 编译
-./mvnw clean compile
-
-# 运行
-./mvnw spring-boot:run
-
-# 或打包后运行
-./mvnw clean package -DskipTests
-java -jar target/test-BookMarkAnalysis-0.0.1-SNAPSHOT.jar
-```
-
-#### 5. 访问服务
-
-| 服务 | 地址 |
-|------|------|
-| API 文档 | http://localhost:8000/swagger-ui.html |
-| 健康检查 | http://localhost:8000/actuator/health |
-| 接口前缀 | http://localhost:8000/BookMarks |
-
----
-
-## 📖 API 接口
-
-### 书签解析
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| POST | `/BookMarks/upload` | 上传 HTML 书签文件（正则解析） |
-| POST | `/BookMarks/upload/jsoup` | 上传 HTML 书签文件（Jsoup 解析） |
-| POST | `/BookMarks/upload/safari` | 上传 Safari plist 书签文件 |
-| POST | `/BookMarks/upload/auto` | 自动识别格式并解析 |
-
-### 书签查询
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| GET | `/BookMarks/list?page=1&limit=10` | 分页查询书签列表 |
-| GET | `/BookMarks/{id}` | 根据 ID 查询书签 |
-| GET | `/BookMarks/url?url=xxx` | 根据 URL 查询书签 |
-
-### 书签分析
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| GET | `/BookMarks/analyze` | 获取书签统计分析 |
-| GET | `/BookMarks/duplicates` | 获取重复书签列表 |
-
-### 链接检测
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| GET | `/BookMarks/checkLinks?limit=10` | 同步检测链接（限制数量） |
-| POST | `/BookMarks/checkLinks/async` | 异步检测所有链接 |
-| GET | `/BookMarks/checkLinks/progress/{taskId}` | 查询检测任务进度 |
-
-### 书签导出
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| GET | `/BookMarks/export?format=html` | 导出为 HTML 格式 |
-| GET | `/BookMarks/export?format=markdown` | 导出为 Markdown 格式 |
-| GET | `/BookMarks/export?format=json` | 导出为 JSON 格式 |
-
-### 书签管理
-
-| 方法 | 接口 | 说明 |
-|------|------|------|
-| POST | `/BookMarks/removeDuplicates` | 去重并保存到 book_marks2 表 |
-| DELETE | `/BookMarks/{id}` | 删除指定书签 |
-
----
 
 ## 📁 项目结构
 
 ```
 test-BookMarkAnalysis/
-├── src/main/java/wo1261931780/testBookMarkAnalysis/
-│   ├── TestBookMarkAnalysisApplication.java    # 启动类
-│   ├── common/
-│   │   └── exception/
-│   │       ├── GlobalExceptionHandler.java     # 全局异常处理
-│   │       └── BusinessException.java          # 业务异常
-│   ├── config/
-│   │   ├── BookmarkConfig.java                 # 书签配置
-│   │   ├── CacheConfig.java                    # 缓存配置
-│   │   ├── MybatisPlusConfig.java              # MyBatis-Plus配置
-│   │   └── OpenApiConfig.java                  # Swagger配置
-│   ├── controller/
-│   │   └── ShowMeListController.java           # 书签API控制器
-│   ├── entity/
-│   │   ├── BaseBookmark.java                   # 书签基类
-│   │   ├── BookMarks.java                      # 原始书签实体
-│   │   ├── BookMarks2.java                     # 去重书签实体
-│   │   ├── BookmarkAnalysis.java               # 分析结果DTO
-│   │   ├── ParseResult.java                    # 解析结果DTO
-│   │   ├── LinkCheckResult.java                # 链接检测结果
-│   │   └── LinkCheckReport.java                # 链接检测报告
-│   ├── mapper/
-│   │   ├── BookMarksMapper.java
-│   │   └── BookMarks2Mapper.java
-│   ├── parser/
-│   │   ├── BookmarkParser.java                 # 解析器接口
-│   │   └── impl/
-│   │       ├── JsoupBookmarkParser.java        # Jsoup解析器
-│   │       └── SafariBookmarkParser.java       # Safari解析器
-│   └── service/
-│       ├── BookMarksService.java
-│       ├── BookmarksParserService.java
-│       ├── LinkCheckService.java               # 链接检测服务
-│       └── impl/
-│           ├── BookmarksParserServiceImpl.java
-│           └── LinkCheckServiceImpl.java
+├── src/main/java/
+│   └── wo1261931780/
+│       ├── controller/          # 控制器层
+│       │   ├── BookmarkController.java    # 书签接口
+│       │   ├── UploadController.java      # 上传接口
+│       │   └── ExportController.java      # 导出接口
+│       ├── service/             # 服务层
+│       │   ├── BookmarkService.java       # 书签服务
+│       │   ├── ParseService.java          # 解析服务
+│       │   ├── AnalysisService.java       # 分析服务
+│       │   └── ExportService.java         # 导出服务
+│       ├── mapper/              # 数据访问层
+│       ├── entity/              # 实体类
+│       │   ├── Bookmark.java              # 书签实体
+│       │   └── BookmarkFolder.java        # 文件夹实体
+│       ├── parser/              # 解析器
+│       │   ├── HtmlParser.java            # HTML解析器
+│       │   └── PlistParser.java           # Plist解析器
+│       ├── config/              # 配置类
+│       │   ├── SwaggerConfig.java         # API文档配置
+│       │   └── CacheConfig.java           # 缓存配置
+│       └── utils/               # 工具类
 ├── src/main/resources/
-│   ├── application.yml                         # 配置文件
-│   └── wo1261931780/.../mapper/
-│       ├── BookMarksMapper.xml
-│       └── BookMarks2Mapper.xml
-├── sql/
-│   └── schema.sql                              # 完整建表脚本
-├── docker/
-│   └── mysql/init/
-│       └── 01-init.sql                         # Docker MySQL初始化
-├── Dockerfile                                  # Docker镜像构建
-├── docker-compose.yml                          # Docker编排
-├── .env.example                                # 环境变量模板
-├── pom.xml                                     # Maven配置
-├── DEVELOPMENT_PLAN.md                         # 开发计划文档
-└── README.md                                   # 本文档
+│   ├── application.yml          # 配置文件
+│   └── db/                      # 数据库脚本
+└── docker-compose.yml           # Docker编排
 ```
 
----
+## 🔌 API文档
 
-## 🗄️ 数据库设计
+启动项目后访问 OpenAPI 文档:
+- Swagger UI: http://localhost:8080/swagger-ui.html
+- OpenAPI JSON: http://localhost:8080/v3/api-docs
 
-### 主键策略
+### 核心API接口
 
-- **类型**：`BIGINT`
-- **生成方式**：后端雪花 ID（MyBatis-Plus `IdType.ASSIGN_ID`）
-- **外键**：不使用数据库外键，通过后端逻辑关联
+#### 1. 上传书签文件
+```http
+POST /api/bookmarks/upload
+Content-Type: multipart/form-data
 
-### 核心表结构
+参数:
+- file: 书签文件
+- browser: 浏览器类型(chrome/firefox/edge/safari)
 
-| 表名 | 说明 |
-|------|------|
-| `book_marks` | 原始书签数据表 |
-| `book_marks2` | 去重后书签数据表 |
-| `link_check_record` | 链接检测记录表 |
-| `import_record` | 导入记录表 |
-| `bookmark_category` | 书签分类表 |
-| `bookmark_tag` | 标签表 |
+响应:
+{
+  "code": 200,
+  "message": "上传成功",
+  "data": {
+    "total": 150,
+    "success": 145,
+    "failed": 5
+  }
+}
+```
 
-完整建表脚本见 [sql/schema.sql](sql/schema.sql)
+#### 2. 获取书签列表
+```http
+GET /api/bookmarks?pageNum=1&pageSize=20
 
----
+响应:
+{
+  "code": 200,
+  "data": {
+    "total": 150,
+    "list": [
+      {
+        "id": 1,
+        "title": "Google",
+        "url": "https://www.google.com",
+        "domain": "google.com",
+        "createTime": "2024-01-01"
+      }
+    ]
+  }
+}
+```
 
-## 📋 开发阶段
+#### 3. 统计分析
+```http
+GET /api/bookmarks/analysis
 
-项目按阶段迭代开发，详细计划见 [DEVELOPMENT_PLAN.md](DEVELOPMENT_PLAN.md)
+响应:
+{
+  "code": 200,
+  "data": {
+    "totalBookmarks": 150,
+    "uniqueDomains": 80,
+    "duplicateCount": 10,
+    "domainDistribution": [
+      {
+        "domain": "github.com",
+        "count": 20
+      }
+    ]
+  }
+}
+```
 
-### 第一阶段：代码重构 ✅
+#### 4. 导出书签
+```http
+GET /api/bookmarks/export?format=html
 
-| 完成项 | 说明 |
-|--------|------|
-| 依赖升级 | Spring Boot 3.4.1, MyBatis-Plus 3.5.9 |
-| 消除硬编码 | 配置类 + application.yml |
-| 包结构重构 | 按职责分包 |
-| 正则优化 | Pattern 预编译 |
-| 全局异常处理 | 统一错误响应 |
-| 参数校验 | @Validated + JSR-303 |
-| 事务管理 | @Transactional |
+支持格式:
+- html: HTML格式
+- markdown: Markdown格式
+- json: JSON格式
+```
 
-### 第二阶段：功能增强 ✅
+## 🔧 核心功能
 
-| 完成项 | 说明 |
-|--------|------|
-| 文件上传 | POST /upload 接口 |
-| 书签分析 | 域名统计、重复检测 |
-| 多格式导出 | HTML/Markdown/JSON |
-| OpenAPI 文档 | Swagger UI |
-| 单元测试 | Service + Controller 测试 |
+### 1. 书签解析
+```java
+@Service
+public class ParseService {
+    public List<Bookmark> parseHtml(MultipartFile file) {
+        Document doc = Jsoup.parse(file.getInputStream(), "UTF-8");
+        // 解析书签数据
+        return parseBookmarks(doc);
+    }
+    
+    public List<Bookmark> parsePlist(MultipartFile file) {
+        PropertyListParser.parse(file.getInputStream());
+        // 解析Safari书签
+        return parseSafariBookmarks();
+    }
+}
+```
 
-### 第三阶段：工程化提升 ✅
+### 2. 统计分析
+```java
+@Service
+public class AnalysisService {
+    public Map<String, Object> analyze() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("totalBookmarks", bookmarkMapper.selectCount(null));
+        result.put("uniqueDomains", getUniqueDomains());
+        result.put("duplicateCount", findDuplicates());
+        result.put("domainDistribution", getDomainDistribution());
+        return result;
+    }
+}
+```
 
-| 完成项 | 说明 |
-|--------|------|
-| API 文档完善 | @Operation、@Parameter 注解 |
-| 测试覆盖 | 核心业务逻辑测试 |
+### 3. 链接检测
+```java
+@Service
+public class CheckService {
+    @Async
+    public void checkLinks(List<Bookmark> bookmarks) {
+        bookmarks.forEach(bookmark -> {
+            try {
+                HttpURLConnection conn = (HttpURLConnection) 
+                    new URL(bookmark.getUrl()).openConnection();
+                bookmark.setStatus(conn.getResponseCode());
+                bookmarkMapper.updateById(bookmark);
+            } catch (Exception e) {
+                bookmark.setStatus(500);
+            }
+        });
+    }
+}
+```
 
-### 第四阶段：高级功能 ✅
+### 4. 多格式导出
+```java
+@Service
+public class ExportService {
+    public void exportToHtml(List<Bookmark> bookmarks, OutputStream out) {
+        // 导出为HTML格式
+    }
+    
+    public void exportToMarkdown(List<Bookmark> bookmarks, OutputStream out) {
+        // 导出为Markdown格式
+    }
+    
+    public void exportToJson(List<Bookmark> bookmarks, OutputStream out) {
+        // 导出为JSON格式
+    }
+}
+```
 
-| 完成项 | 说明 |
-|--------|------|
-| Jsoup 解析器 | 更健壮的 HTML 解析 |
-| Caffeine 缓存 | 本地缓存提升性能 |
-| Docker 部署 | 多阶段构建 + docker-compose |
-| 健康检查 | Actuator /health 端点 |
+## 📊 数据库设计
 
-### 第五阶段：实体重构 ✅
+### 书签表(bookmark)
+```sql
+CREATE TABLE `bookmark` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `title` varchar(255) NOT NULL COMMENT '书签标题',
+  `url` varchar(500) NOT NULL COMMENT '书签URL',
+  `domain` varchar(100) COMMENT '域名',
+  `folder_path` varchar(255) COMMENT '文件夹路径',
+  `create_time` datetime COMMENT '创建时间',
+  `status` int COMMENT '状态(200/404等)',
+  PRIMARY KEY (`id`),
+  KEY `idx_domain` (`domain`),
+  KEY `idx_url` (`url`)
+);
+```
 
-| 完成项 | 说明 |
-|--------|------|
-| BaseBookmark 基类 | 公共字段抽取 |
-| 常量类提取 | BookmarkColumns |
-| 链接检测 | 同步/异步检测失效链接 |
+## 🐳 Docker部署
 
-### 第六阶段：Safari 支持 ✅
+### Dockerfile
+```dockerfile
+FROM openjdk:17-jdk-slim
+WORKDIR /app
+COPY target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
+```
 
-| 完成项 | 说明 |
-|--------|------|
-| Safari plist 解析 | dd-plist 库 |
-| 智能格式识别 | 自动判断 HTML/plist |
-| 雪花ID | 主键改为后端生成 |
-
----
-
-## 🔧 配置说明
-
-### application.yml 主要配置
-
+### docker-compose.yml
 ```yaml
-server:
-  port: 8000
-
-spring:
-  datasource:
-    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:bookmarks}
-    username: ${MYSQL_USER:bookmarks}
-    password: ${MYSQL_PASSWORD:bookmarks123}
-
-# 书签配置
-bookmark:
-  input-path: classpath:bookmarks/bookmarks.html
-  output-path: ${user.home}/bookmark-output/result.txt
+version: '3.8'
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/bookmark
+    depends_on:
+      - db
+  db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=bookmark
+    volumes:
+      - mysql_data:/var/lib/mysql
+volumes:
+  mysql_data:
 ```
 
-### 环境变量
+## 📈 性能优化
 
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `MYSQL_HOST` | localhost | MySQL 主机 |
-| `MYSQL_PORT` | 3306 | MySQL 端口 |
-| `MYSQL_DATABASE` | bookmarks | 数据库名 |
-| `MYSQL_USER` | bookmarks | 数据库用户 |
-| `MYSQL_PASSWORD` | bookmarks123 | 数据库密码 |
-
----
-
-## 🧪 测试
-
-```bash
-# 运行所有测试
-./mvnw test
-
-# 运行指定测试类
-./mvnw test -Dtest=BookmarksParserServiceTest
-
-# 生成测试报告
-./mvnw test jacoco:report
+### 1. 缓存策略
+```java
+@Cacheable(value = "bookmarks", key = "#domain")
+public List<Bookmark> getByDomain(String domain) {
+    return bookmarkMapper.selectByDomain(domain);
+}
 ```
 
----
-
-## 📦 构建与部署
-
-### Maven 打包
-
-```bash
-# 跳过测试打包
-./mvnw clean package -DskipTests
-
-# 运行 JAR
-java -jar target/test-BookMarkAnalysis-0.0.1-SNAPSHOT.jar
+### 2. 异步处理
+```java
+@Async
+public CompletableFuture<Void> checkLinksAsync(List<Bookmark> bookmarks) {
+    checkLinks(bookmarks);
+    return CompletableFuture.completedFuture(null);
+}
 ```
 
-### Docker 构建
-
-```bash
-# 构建镜像
-docker build -t bookmark-analysis:latest .
-
-# 运行容器
-docker run -d -p 8000:8000 \
-  -e MYSQL_HOST=your-mysql-host \
-  -e MYSQL_PASSWORD=your-password \
-  bookmark-analysis:latest
+### 3. 批量处理
+```java
+public void batchInsert(List<Bookmark> bookmarks) {
+    bookmarkMapper.insertBatchSomeColumn(bookmarks);
+}
 ```
 
+## 📝 更新日志
+
+### v1.0.0
+- 初始化项目结构
+- 支持Chrome/Firefox/Edge书签解析
+- 支持Safari plist格式解析
+- 实现统计分析功能
+- 实现多格式导出
+- 支持Docker部署
+
+## 🤝 贡献指南
+
+欢迎提交 Issue 和 Pull Request!
+
+## 📄 许可证
+
+本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情
+
+## 📮 联系方式
+
+- 作者: junw
+- Email: wo1261931780@gmail.com
+- GitHub: [@wo1261931780](https://github.com/wo1261931780)
+
+## 🙏 致谢
+
+感谢 Jsoup、dd-plist 等开源项目的支持!
+
 ---
 
-## 📄 License
-
-MIT License - 详见 [LICENSE](LICENSE) 文件
-
----
-
-## 👤 作者
-
-**liujiajun_junw**
-
----
-
-## 🔗 相关链接
-
-- [Spring Boot 3.4 文档](https://docs.spring.io/spring-boot/docs/3.4.1/reference/html/)
-- [MyBatis-Plus 官方文档](https://baomidou.com/)
-- [Jsoup 官方文档](https://jsoup.org/)
-- [开发计划文档](DEVELOPMENT_PLAN.md)
+**说明**: 本项目主要用于浏览器书签的管理和分析,支持主流浏览器格式,提供完整的解析、存储、分析和导出功能。
