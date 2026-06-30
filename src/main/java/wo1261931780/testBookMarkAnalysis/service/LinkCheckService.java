@@ -1,19 +1,14 @@
 package wo1261931780.testBookMarkAnalysis.service;
 
+import java.util.List;
 import wo1261931780.testBookMarkAnalysis.entity.LinkCheckReport;
 import wo1261931780.testBookMarkAnalysis.entity.LinkCheckResult;
 
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.service
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description 链接检测服务接口
+ * @author liujiajun_junw @Date 2026-01-04 @Description 链接检测服务接口
  */
 public interface LinkCheckService {
 
@@ -36,9 +31,9 @@ public interface LinkCheckService {
     /**
      * 检测数据库中所有书签链接（异步）
      *
-     * @return 异步任务，返回检测报告
+     * @return 初始检测报告（包含任务ID）
      */
-    CompletableFuture<LinkCheckReport> checkAllLinksAsync();
+    LinkCheckReport checkAllLinksAsync();
 
     /**
      * 检测数据库中所有书签链接（同步，限制数量）
