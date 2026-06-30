@@ -2,6 +2,8 @@ package wo1261931780.testBookMarkAnalysis.controller;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.ObjectUtil;
+import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -87,7 +89,16 @@ public class ShowMeListController {
         Page<BookMarks> pageInfo = new Page<>(); // 页码，每页条数
         pageInfo.setCurrent(page); // 当前页
         pageInfo.setSize(limit); // 每页条数
-        Page<BookMarks> testPage = bookmarksParserService.page(pageInfo);
+        LambdaQueryWrapper<BookMarks> wrapper = new LambdaQueryWrapper<>();
+        // 默认只返回链接类型，保持与 /search 一致；传入 type=all 可查看全部
+        if ("all".equalsIgnoreCase(type)) {
+            // 不过滤
+        } else if (StrUtil.isNotBlank(type)) {
+            wrapper.eq(BookMarks::getType, type);
+        } else {
+            wrapper.eq(BookMarks::getType, "a");
+        }
+        Page<BookMarks> testPage = bookmarksParserService.page(pageInfo, wrapper);
         return ShowResult.sendSuccess(testPage);
     }
 
