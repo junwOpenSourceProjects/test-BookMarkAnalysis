@@ -10,14 +10,10 @@ import lombok.Getter;
 @Getter
 public class BusinessException extends RuntimeException {
 
-    /**
-     * 错误码
-     */
+    /** 错误码 */
     private final Integer code;
 
-    /**
-     * 错误信息
-     */
+    /** 错误信息 */
     private final String message;
 
     public BusinessException(String message) {
