@@ -14,13 +14,19 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "bookmark")
 public class BookmarkConfig {
 
-    /**
-     * 输入文件路径（支持classpath:前缀或绝对路径）
-     */
-    private String inputPath = "classpath:wo1261931780/testBookMarkAnalysis/bookmarks/bookmarks.html";
+    /** 输入文件路径（支持classpath:前缀或绝对路径） */
+    private String inputPath =
+            "classpath:wo1261931780/testBookMarkAnalysis/bookmarks/bookmarks.html";
 
-    /**
-     * 输出文件路径
-     */
+    /** 输出文件路径 */
     private String outputPath = "${user.home}/bookmark-output/result.txt";
+
+    /** AI API 基础地址 */
+    private String aiApiBaseUrl;
+
+    /** AI API 密钥 */
+    private String aiApiKey;
+
+    /** AI 模型名称 */
+    private String aiModelName;
 }
