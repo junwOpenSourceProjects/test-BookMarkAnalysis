@@ -8,6 +8,7 @@ import org.springframework.web.filter.CorsFilter;
 
 /**
  * 跨域配置
+ *
  * @author junw
  */
 @Configuration
@@ -16,25 +17,25 @@ public class CorsConfig {
     @Bean
     public CorsFilter corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
-        
+
         // 允许所有域名跨域
         config.addAllowedOriginPattern("*");
-        
+
         // 允许所有请求头
         config.addAllowedHeader("*");
-        
+
         // 允许所有请求方法
         config.addAllowedMethod("*");
-        
+
         // 允许携带cookies
         config.setAllowCredentials(true);
-        
+
         // 预检请求缓存时间(秒)
         config.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
-        
+
         return new CorsFilter(source);
     }
 }

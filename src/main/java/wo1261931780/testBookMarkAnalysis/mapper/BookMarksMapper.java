@@ -7,14 +7,11 @@ import org.apache.ibatis.annotations.Param;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 
 /**
-*Created by Intellij IDEA.
-*Project:test-BookMarkAnalysis
-*Package:wo1261931780.testBookMarkAnalysis.mapper
-*@author liujiajun_junw
-*@Date 2023-11-15-18  星期二
-*@Description
-*/
-
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
+ * Package:wo1261931780.testBookMarkAnalysis.mapper
+ *
+ * @author liujiajun_junw @Date 2023-11-15-18 星期二 @Description
+ */
 @Mapper
 public interface BookMarksMapper extends BaseMapper<BookMarks> {
     int updateBatch(List<BookMarks> list);
@@ -22,6 +19,7 @@ public interface BookMarksMapper extends BaseMapper<BookMarks> {
     int updateBatchSelective(List<BookMarks> list);
 
     int batchInsert(@Param("list") List<BookMarks> list);
+
     int batchInsert2(@Param("list") List<BookMarks> list);
 
     int customInsertOrUpdate(BookMarks record);

@@ -3,41 +3,30 @@ package wo1261931780.testBookMarkAnalysis.parser.impl;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import com.dd.plist.*;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 import wo1261931780.testBookMarkAnalysis.parser.BookmarkParser;
 
-import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.parser.impl
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description Safari书签解析器（plist格式）
- *
- * Safari书签文件位置：~/Library/Safari/Bookmarks.plist
- * 文件结构：
- * - Root (dict)
- *   - Children (array) - 包含书签栏、阅读列表等
- *     - WebBookmarkType: "WebBookmarkTypeList" (文件夹) 或 "WebBookmarkTypeLeaf" (书签)
- *     - URLString: 书签URL
- *     - URIDictionary.title: 书签标题
- *     - Children: 子书签列表
+ * @author liujiajun_junw @Date 2026-01-04 @Description Safari书签解析器（plist格式）
+ *     <p>Safari书签文件位置：~/Library/Safari/Bookmarks.plist 文件结构： - Root (dict) - Children (array) -
+ *     包含书签栏、阅读列表等 - WebBookmarkType: "WebBookmarkTypeList" (文件夹) 或 "WebBookmarkTypeLeaf" (书签) -
+ *     URLString: 书签URL - URIDictionary.title: 书签标题 - Children: 子书签列表
  */
 @Slf4j
 @Component("safariBookmarkParser")
 public class SafariBookmarkParser implements BookmarkParser {
 
-    /**
-     * Safari书签类型常量
-     */
+    /** Safari书签类型常量 */
     private static final String TYPE_LIST = "WebBookmarkTypeList";
+
     private static final String TYPE_LEAF = "WebBookmarkTypeLeaf";
     private static final String TYPE_PROXY = "WebBookmarkTypeProxy";
 
@@ -84,9 +73,9 @@ public class SafariBookmarkParser implements BookmarkParser {
     /**
      * 递归解析Children数组
      *
-     * @param children   子项数组
-     * @param bookmarks  结果列表
-     * @param parentId   父文件夹ID
+     * @param children 子项数组
+     * @param bookmarks 结果列表
+     * @param parentId 父文件夹ID
      */
     private void parseChildren(NSArray children, List<BookMarks> bookmarks, Long parentId) {
         if (children == null) {
@@ -136,9 +125,7 @@ public class SafariBookmarkParser implements BookmarkParser {
         }
     }
 
-    /**
-     * 解析书签链接
-     */
+    /** 解析书签链接 */
     private BookMarks parseLeaf(NSDictionary item) {
         String url = getStringValue(item, "URLString");
         if (StrUtil.isEmpty(url)) {
@@ -165,9 +152,7 @@ public class SafariBookmarkParser implements BookmarkParser {
         return bookmark;
     }
 
-    /**
-     * 解析文件夹
-     */
+    /** 解析文件夹 */
     private BookMarks parseFolder(NSDictionary item) {
         String title = getTitle(item);
 
@@ -194,10 +179,7 @@ public class SafariBookmarkParser implements BookmarkParser {
         return folder;
     }
 
-    /**
-     * 获取书签标题
-     * Safari书签的标题可能在URIDictionary.title或直接的Title字段
-     */
+    /** 获取书签标题 Safari书签的标题可能在URIDictionary.title或直接的Title字段 */
     private String getTitle(NSDictionary item) {
         // 首先尝试直接的Title字段
         String title = getStringValue(item, "Title");
@@ -223,9 +205,7 @@ public class SafariBookmarkParser implements BookmarkParser {
         return "未命名";
     }
 
-    /**
-     * 安全获取字符串值
-     */
+    /** 安全获取字符串值 */
     private String getStringValue(NSDictionary dict, String key) {
         if (dict == null) {
             return null;

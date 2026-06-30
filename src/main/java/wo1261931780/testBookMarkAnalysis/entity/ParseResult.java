@@ -4,13 +4,10 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.entity
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description 解析结果DTO
+ * @author liujiajun_junw @Date 2026-01-04 @Description 解析结果DTO
  */
 @Data
 @Schema(description = "书签解析结果")

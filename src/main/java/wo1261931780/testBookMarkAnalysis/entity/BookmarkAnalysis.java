@@ -1,19 +1,15 @@
 package wo1261931780.testBookMarkAnalysis.entity;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Data;
-
 import java.util.List;
 import java.util.Map;
+import lombok.Data;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.entity
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description 书签分析结果DTO
+ * @author liujiajun_junw @Date 2026-01-04 @Description 书签分析结果DTO
  */
 @Data
 @Schema(description = "书签分析结果")

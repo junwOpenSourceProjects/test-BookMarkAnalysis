@@ -1,18 +1,14 @@
 package wo1261931780.testBookMarkAnalysis.parser;
 
-import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
-
 import java.io.InputStream;
 import java.util.List;
+import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.parser
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description 书签解析器接口
+ * @author liujiajun_junw @Date 2026-01-04 @Description 书签解析器接口
  */
 public interface BookmarkParser {
 

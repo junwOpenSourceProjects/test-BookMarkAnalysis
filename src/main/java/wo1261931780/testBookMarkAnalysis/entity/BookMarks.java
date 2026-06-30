@@ -7,13 +7,10 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.entity
  *
- * @author liujiajun_junw
- * @Date 2023-11-15-18  星期二
- * @Description 书签实体类（原始数据表）
+ * @author liujiajun_junw @Date 2023-11-15-18 星期二 @Description 书签实体类（原始数据表）
  */
 @Schema(description = "书签实体（原始数据）")
 @Data

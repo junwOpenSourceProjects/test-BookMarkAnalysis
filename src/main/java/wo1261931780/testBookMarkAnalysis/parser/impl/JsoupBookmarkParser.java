@@ -2,35 +2,26 @@ package wo1261931780.testBookMarkAnalysis.parser.impl;
 
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-import org.springframework.stereotype.Component;
-import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
-import wo1261931780.testBookMarkAnalysis.parser.BookmarkParser;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.springframework.stereotype.Component;
+import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
+import wo1261931780.testBookMarkAnalysis.parser.BookmarkParser;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.parser.impl
  *
- * @author liujiajun_junw
- * @Date 2026-01-04
- * @Description 基于Jsoup的HTML书签解析器
- * <p>
- * 相比正则表达式解析的优势：
- * 1. 更健壮 - 能正确处理格式不规范的HTML
- * 2. 更易维护 - 使用CSS选择器语法，代码更清晰
- * 3. 更安全 - 不会因为HTML变化而导致解析失败
- * 4. 更快速 - 对于大文件，Jsoup的DOM解析更高效
+ * @author liujiajun_junw @Date 2026-01-04 @Description 基于Jsoup的HTML书签解析器
+ *     <p>相比正则表达式解析的优势： 1. 更健壮 - 能正确处理格式不规范的HTML 2. 更易维护 - 使用CSS选择器语法，代码更清晰 3. 更安全 -
+ *     不会因为HTML变化而导致解析失败 4. 更快速 - 对于大文件，Jsoup的DOM解析更高效
  */
 @Slf4j
 @Component("jsoupBookmarkParser")
@@ -58,76 +49,84 @@ public class JsoupBookmarkParser implements BookmarkParser {
         return "JsoupBookmarkParser";
     }
 
-    /**
-     * 解析Document对象
-     */
+    /** 解析Document对象 */
     private List<BookMarks> parseDocument(Document doc) {
         List<BookMarks> bookmarkList = new ArrayList<>();
 
-        doc.traverse(new org.jsoup.select.NodeVisitor() {
-            private java.util.Stack<Long> parentStack = new java.util.Stack<>();
-            private java.util.Map<Long, Integer> sortOrderMap = new java.util.HashMap<>();
-            private Long lastH3Id = null;
+        doc.traverse(
+                new org.jsoup.select.NodeVisitor() {
+                    private java.util.Stack<Long> parentStack = new java.util.Stack<>();
+                    private java.util.Map<Long, Integer> sortOrderMap = new java.util.HashMap<>();
+                    private Long lastH3Id = null;
 
-            @Override
-            public void head(org.jsoup.nodes.Node node, int depth) {
-                if (node instanceof Element) {
-                    Element el = (Element) node;
-                    String tag = el.tagName().toLowerCase();
+                    @Override
+                    public void head(org.jsoup.nodes.Node node, int depth) {
+                        if (node instanceof Element) {
+                            Element el = (Element) node;
+                            String tag = el.tagName().toLowerCase();
 
-                    if ("dl".equals(tag)) {
-                        parentStack.push(lastH3Id);
-                    } else if ("h3".equals(tag)) {
-                        BookMarks folder = parseFolder(el);
-                        if (folder != null) {
-                            Long parentId = parentStack.isEmpty() ? null : parentStack.peek();
-                            int sortOrder = sortOrderMap.getOrDefault(parentId != null ? parentId : 0L, 0);
+                            if ("dl".equals(tag)) {
+                                parentStack.push(lastH3Id);
+                            } else if ("h3".equals(tag)) {
+                                BookMarks folder = parseFolder(el);
+                                if (folder != null) {
+                                    Long parentId =
+                                            parentStack.isEmpty() ? null : parentStack.peek();
+                                    int sortOrder =
+                                            sortOrderMap.getOrDefault(
+                                                    parentId != null ? parentId : 0L, 0);
 
-                            folder.setParentId(parentId);
-                            folder.setSortOrder(sortOrder);
-                            bookmarkList.add(folder);
+                                    folder.setParentId(parentId);
+                                    folder.setSortOrder(sortOrder);
+                                    bookmarkList.add(folder);
 
-                            sortOrderMap.put(parentId != null ? parentId : 0L, sortOrder + 1);
-                            lastH3Id = folder.getId();
-                        }
-                    } else if ("a".equals(tag)) {
-                        BookMarks link = parseLink(el);
-                        if (link != null) {
-                            Long parentId = parentStack.isEmpty() ? null : parentStack.peek();
-                            int sortOrder = sortOrderMap.getOrDefault(parentId != null ? parentId : 0L, 0);
+                                    sortOrderMap.put(
+                                            parentId != null ? parentId : 0L, sortOrder + 1);
+                                    lastH3Id = folder.getId();
+                                }
+                            } else if ("a".equals(tag)) {
+                                BookMarks link = parseLink(el);
+                                if (link != null) {
+                                    Long parentId =
+                                            parentStack.isEmpty() ? null : parentStack.peek();
+                                    int sortOrder =
+                                            sortOrderMap.getOrDefault(
+                                                    parentId != null ? parentId : 0L, 0);
 
-                            link.setParentId(parentId);
-                            link.setSortOrder(sortOrder);
-                            bookmarkList.add(link);
+                                    link.setParentId(parentId);
+                                    link.setSortOrder(sortOrder);
+                                    bookmarkList.add(link);
 
-                            sortOrderMap.put(parentId != null ? parentId : 0L, sortOrder + 1);
+                                    sortOrderMap.put(
+                                            parentId != null ? parentId : 0L, sortOrder + 1);
+                                }
+                            }
                         }
                     }
-                }
-            }
 
-            @Override
-            public void tail(org.jsoup.nodes.Node node, int depth) {
-                if (node instanceof Element) {
-                    if ("dl".equals(((Element) node).tagName().toLowerCase())) {
-                        if (!parentStack.isEmpty()) {
-                            parentStack.pop();
+                    @Override
+                    public void tail(org.jsoup.nodes.Node node, int depth) {
+                        if (node instanceof Element) {
+                            if ("dl".equals(((Element) node).tagName().toLowerCase())) {
+                                if (!parentStack.isEmpty()) {
+                                    parentStack.pop();
+                                }
+                            }
                         }
                     }
-                }
-            }
-        });
+                });
 
         long linkCount = bookmarkList.stream().filter(b -> "a".equals(b.getType())).count();
         long folderCount = bookmarkList.stream().filter(b -> "h3".equals(b.getType())).count();
-        log.info("[Jsoup] 解析完成，共解析到 {} 条书签（链接: {}, 文件夹: {}）",
-                bookmarkList.size(), linkCount, folderCount);
+        log.info(
+                "[Jsoup] 解析完成，共解析到 {} 条书签（链接: {}, 文件夹: {}）",
+                bookmarkList.size(),
+                linkCount,
+                folderCount);
         return bookmarkList;
     }
 
-    /**
-     * 解析链接元素
-     */
+    /** 解析链接元素 */
     private BookMarks parseLink(Element link) {
         BookMarks bookmark = new BookMarks();
         bookmark.setId(IdUtil.getSnowflakeNextId());
@@ -163,9 +162,7 @@ public class JsoupBookmarkParser implements BookmarkParser {
         return bookmark;
     }
 
-    /**
-     * 解析文件夹元素
-     */
+    /** 解析文件夹元素 */
     private BookMarks parseFolder(Element folder) {
         BookMarks bookmark = new BookMarks();
         bookmark.setId(IdUtil.getSnowflakeNextId());
