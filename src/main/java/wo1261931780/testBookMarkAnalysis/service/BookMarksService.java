@@ -1,22 +1,20 @@
 package wo1261931780.testBookMarkAnalysis.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import java.util.List;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 import wo1261931780.testBookMarkAnalysis.mapper.BookMarksMapper;
 
 /**
- * Created by Intellij IDEA.
- * Project:test-BookMarkAnalysis
+ * Created by Intellij IDEA. Project:test-BookMarkAnalysis
  * Package:wo1261931780.testBookMarkAnalysis.service
  *
- * @author liujiajun_junw
- * @Date 2023-11-15-18  星期二
- * @Description 书签服务类
+ * @author liujiajun_junw @Date 2023-11-15-18 星期二 @Description 书签服务类
  */
 @Service
+@Transactional(rollbackFor = Exception.class)
 public class BookMarksService extends ServiceImpl<BookMarksMapper, BookMarks> {
 
     @Transactional(rollbackFor = Exception.class)
