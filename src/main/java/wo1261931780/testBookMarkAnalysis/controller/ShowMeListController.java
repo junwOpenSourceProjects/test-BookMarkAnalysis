@@ -400,8 +400,6 @@ public class ShowMeListController {
     @Operation(summary = "工具箱：启动死链探针", description = "异步使用虚拟线程扫描全网死链")
     @PostMapping("/toolbox/scanDeadLinks/start")
     public ShowResult<Boolean> startDeadLinkScan() {
-        deduplicate();
-        clearEmptyFolders();
         List<BookMarks> links =
                 bookMarksService.list(
                         new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
