@@ -549,10 +549,10 @@ docker-compose logs -f app
 
 #### Phase 2：标题补全
 
-- [ ] 2.1 实现 `generateTitle()` — AI 根据 URL 生成完整标题
-- [ ] 2.2 批量处理：仅对空标题/无意义标题调用 AI
-- [ ] 2.3 命名格式：「关键词 - 场景」+ 提取关键词列表
-- [ ] 2.4 新增 API 端点：`POST /BookMarks/toolbox/generateTitles`
+- [x] 2.1 实现 `generateTitle()` — AI 根据 URL 生成完整标题
+- [x] 2.2 批量处理：仅对空标题/无意义标题调用 AI
+- [x] 2.3 命名格式：「关键词 - 场景」+ 提取关键词列表
+- [x] 2.4 新增 API 端点：`POST /BookMarks/toolbox/generateTitles`
 
 #### Phase 3：前端策略选择 + 预览
 

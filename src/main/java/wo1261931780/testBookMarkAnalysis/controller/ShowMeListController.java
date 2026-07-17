@@ -473,6 +473,51 @@ public class ShowMeListController {
     }
 
     @Autowired
+    private wo1261931780.testBookMarkAnalysis.service.TitleGenerationService titleGenerationService;
+
+    @Operation(summary = "AI 标题补全", description = "对空标题或无意义标题的书签，调用 AI 生成完整标题建议")
+    @PostMapping("/toolbox/generateTitles")
+    public ShowResult<List<Map<String, Object>>> generateTitles(
+            @RequestBody Map<String, Object> req) {
+        try {
+            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl",
+                    bookmarkConfig.getAiApiBaseUrl());
+            String apiKey = (String) req.getOrDefault("apiKey",
+                    bookmarkConfig.getAiApiKey());
+            String modelName = (String) req.getOrDefault("modelName",
+                    bookmarkConfig.getAiModelName());
+            if (apiKey == null || apiKey.isBlank()) {
+                return ShowResult.sendError("未配置 AI API Key");
+            }
+
+            @SuppressWarnings("unchecked")
+            List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
+            List<Long> bookmarkIds = null;
+            if (rawIds != null && !rawIds.isEmpty()) {
+                bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
+            }
+
+            List<Map<String, Object>> suggestions =
+                    titleGenerationService.generateTitles(apiBaseUrl, apiKey, modelName, bookmarkIds);
+            return ShowResult.sendSuccess(suggestions);
+        } catch (Exception e) {
+            log.error("标题补全异常", e);
+            return ShowResult.sendError("标题补全失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "应用标题补全", description = "将 AI 生成的标题建议写入数据库")
+    @PostMapping("/toolbox/applyTitles")
+    public ShowResult<Map<String, Object>> applyTitles(
+            @RequestBody List<Map<String, Object>> suggestions) {
+        int updated = titleGenerationService.applyTitles(suggestions);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("updated", updated);
+        result.put("total", suggestions.size());
+        return ShowResult.sendSuccess(result);
+    }
+
+    @Autowired
     private wo1261931780.testBookMarkAnalysis.service.DeadLinkScannerService deadLinkScannerService;
 
     @Operation(summary = "工具箱：启动死链探针", description = "异步使用虚拟线程扫描全网死链")
