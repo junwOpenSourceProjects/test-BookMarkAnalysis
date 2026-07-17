@@ -34,8 +34,8 @@ bookmark:
   input-path: ${BOOKMARK_INPUT_PATH:classpath:wo1261931780/testBookMarkAnalysis/bookmarks/bookmarks.html}
   # 输出文件路径
   output-path: ${BOOKMARK_OUTPUT_PATH:${user.home}/bookmark-output/result.txt}
-  # AI 配置（默认使用 DeepSeek V4 API，OpenAI 兼容协议）
-  ai-api-base-url: ${BOOKMARK_AI_API_BASE_URL:https://api.deepseek.com/v1}
+  # AI 配置（默认使用 VoltAPI，Anthropic Messages 协议）
+  ai-api-base-url: ${BOOKMARK_AI_API_BASE_URL:https://voltapi.ai}
   ai-api-key: ${BOOKMARK_AI_API_KEY:}
   ai-model-name: ${BOOKMARK_AI_MODEL_NAME:deepseek-v4-flash}
 

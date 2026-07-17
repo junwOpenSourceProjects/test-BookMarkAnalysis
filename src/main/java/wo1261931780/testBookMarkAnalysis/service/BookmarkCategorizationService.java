@@ -3,14 +3,8 @@ package wo1261931780.testBookMarkAnalysis.service;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +16,7 @@ import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 public class BookmarkCategorizationService {
 
     @Autowired private BookMarksService bookMarksService;
+    @Autowired private AiClientService aiClient;
 
     private String extractDomain(String urlStr) {
         try {
@@ -95,73 +90,8 @@ public class BookmarkCategorizationService {
                         + "  }\n"
                         + "]";
 
-        JSONObject requestBody = new JSONObject();
-        requestBody.set("model", modelName);
-        JSONArray messages = new JSONArray();
-
-        JSONObject systemMsg = new JSONObject();
-        systemMsg.set("role", "system");
-        systemMsg.set("content", systemPrompt);
-        messages.add(systemMsg);
-
-        JSONObject userMsg = new JSONObject();
-        userMsg.set("role", "user");
-        userMsg.set("content", userContent);
-        messages.add(userMsg);
-
-        requestBody.set("messages", messages);
-        requestBody.set("temperature", 0.3);
-
-        String apiEndpoint = apiBaseUrl;
-        if (!apiEndpoint.endsWith("/")) {
-            apiEndpoint += "/";
-        }
-        apiEndpoint += "chat/completions";
-
-        String responseBodyStr;
-        cn.hutool.http.HttpRequest request =
-                cn.hutool.http.HttpUtil.createPost(apiEndpoint)
-                        .header("Content-Type", "application/json; charset=utf-8")
-                        .header("Authorization", "Bearer " + apiKey)
-                        .timeout(120000)
-                        .body(requestBody.toString());
-
-        String proxyHost = System.getProperty("http.proxyHost");
-        String proxyPort = System.getProperty("http.proxyPort");
-        if (proxyHost != null && proxyPort != null && !proxyHost.isEmpty()) {
-            try {
-                request.setProxy(
-                        new java.net.Proxy(
-                                java.net.Proxy.Type.HTTP,
-                                new java.net.InetSocketAddress(
-                                        proxyHost, Integer.parseInt(proxyPort))));
-            } catch (Exception ignored) {
-            }
-        }
-
-        try (cn.hutool.http.HttpResponse response = request.execute()) {
-            if (!response.isOk()) {
-                throw new RuntimeException(
-                        "AI API 请求失败: HTTP " + response.getStatus() + " - " + response.body());
-            }
-            responseBodyStr = response.body();
-        }
-        JSONObject responseJson = JSONUtil.parseObj(responseBodyStr);
-        String textReply =
-                responseJson
-                        .getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                        .getStr("content");
-
-        // 尝试去除包裹的 ```json 和 ```
-        textReply = textReply.trim();
-        if (textReply.startsWith("```json")) textReply = textReply.substring(7);
-        else if (textReply.startsWith("```")) textReply = textReply.substring(3);
-        if (textReply.endsWith("```")) textReply = textReply.substring(0, textReply.length() - 3);
-        textReply = textReply.trim();
-
-        JSONArray replyArray = JSONUtil.parseArray(textReply);
+        JSONArray replyArray = aiClient.chat(
+                systemPrompt, userContent, 0.3, apiBaseUrl, apiKey, modelName);
         List<Map<String, Object>> resultList = new ArrayList<>();
         for (int i = 0; i < replyArray.size(); i++) {
             resultList.add((Map<String, Object>) replyArray.getJSONObject(i).toBean(Map.class));
@@ -273,82 +203,8 @@ public class BookmarkCategorizationService {
 
         String userContent = "【请对以下批次的网站执行归类】：\n" + batchArray.toString();
 
-        JSONObject requestBody = new JSONObject();
-        requestBody.set("model", modelName);
-        JSONArray messages = new JSONArray();
-
-        JSONObject systemMsg = new JSONObject();
-        systemMsg.set("role", "system");
-        systemMsg.set("content", systemPrompt);
-        messages.add(systemMsg);
-
-        JSONObject userMsg = new JSONObject();
-        userMsg.set("role", "user");
-        userMsg.set("content", userContent);
-        messages.add(userMsg);
-
-        requestBody.set("messages", messages);
-        requestBody.set("temperature", 0.1);
-
-        String apiEndpoint = apiBaseUrl;
-        if (!apiEndpoint.endsWith("/")) apiEndpoint += "/";
-        apiEndpoint += "chat/completions";
-
-        cn.hutool.http.HttpRequest request =
-                cn.hutool.http.HttpUtil.createPost(apiEndpoint)
-                        .header("Content-Type", "application/json; charset=utf-8")
-                        .header("Authorization", "Bearer " + apiKey)
-                        .timeout(120000)
-                        .body(requestBody.toString());
-
-        String proxyHost = System.getProperty("http.proxyHost");
-        String proxyPort = System.getProperty("http.proxyPort");
-        if (proxyHost != null && proxyPort != null && !proxyHost.isEmpty()) {
-            try {
-                request.setProxy(
-                        new java.net.Proxy(
-                                java.net.Proxy.Type.HTTP,
-                                new java.net.InetSocketAddress(
-                                        proxyHost, Integer.parseInt(proxyPort))));
-            } catch (Exception ignored) {
-            }
-        }
-
-        String responseBodyStr = null;
-        int retryCount = 0;
-        int maxRetries = 3;
-        while (retryCount < maxRetries) {
-            try (cn.hutool.http.HttpResponse response = request.execute()) {
-                if (!response.isOk()) {
-                    throw new RuntimeException(
-                            "HTTP " + response.getStatus() + " - " + response.body());
-                }
-                responseBodyStr = response.body();
-                break;
-            } catch (Exception e) {
-                retryCount++;
-                if (retryCount >= maxRetries) {
-                    throw new Exception("获取AI建议失败: " + e.getMessage(), e);
-                }
-                Thread.sleep(3000);
-            }
-        }
-
-        JSONObject responseJson = JSONUtil.parseObj(responseBodyStr);
-        String textReply =
-                responseJson
-                        .getJSONArray("choices")
-                        .getJSONObject(0)
-                        .getJSONObject("message")
-                        .getStr("content");
-
-        textReply = textReply.trim();
-        if (textReply.startsWith("```json")) textReply = textReply.substring(7);
-        else if (textReply.startsWith("```")) textReply = textReply.substring(3);
-        if (textReply.endsWith("```")) textReply = textReply.substring(0, textReply.length() - 3);
-        textReply = textReply.trim();
-
-        JSONArray mappings = JSONUtil.parseArray(textReply);
+        JSONArray mappings = aiClient.chat(
+                systemPrompt, userContent, 0.1, apiBaseUrl, apiKey, modelName);
         List<Map<String, Object>> resultList = new ArrayList<>();
         for (int j = 0; j < mappings.size(); j++) {
             resultList.add((Map<String, Object>) mappings.getJSONObject(j).toBean(Map.class));
