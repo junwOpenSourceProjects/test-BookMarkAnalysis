@@ -69,27 +69,32 @@ public class SmartClassificationService {
             results.add(item);
         }
 
-        // 第2层：AI 回退（仅处理规则未覆盖的）
+        // 第2层：AI 回退（分批处理，每批最多 50 条）
         int aiMatched = 0;
+        int AI_BATCH_SIZE = 50;
         if (useAI && !unmatched.isEmpty() && apiKey != null && !apiKey.isBlank()) {
-            List<Map<String, Object>> aiResults = aiClassifyBatch(strategy, unmatched, apiBaseUrl, apiKey, modelName);
-            Map<String, Map<String, Object>> aiMap = new LinkedHashMap<>();
-            for (Map<String, Object> r : aiResults) {
-                aiMap.put((String) r.get("bookmarkId"), r);
-            }
-
-            for (Map<String, Object> item : results) {
-                if ("unmatched".equals(item.get("source"))) {
-                    Map<String, Object> aiResult = aiMap.get(item.get("bookmarkId"));
-                    if (aiResult != null) {
-                        item.put("suggestedTitle", aiResult.get("suggestedTitle"));
-                        item.put("suggestedFolder", aiResult.get("suggestedFolder"));
-                        item.put("keywords", aiResult.get("keywords"));
-                        item.put("pageType", aiResult.get("pageType"));
-                        item.put("confidence", aiResult.getOrDefault("confidence", 60));
-                        item.put("source", "ai");
-                        item.put("aiReason", aiResult.get("reason"));
-                        aiMatched++;
+            for (int batchStart = 0; batchStart < unmatched.size(); batchStart += AI_BATCH_SIZE) {
+                int batchEnd = Math.min(batchStart + AI_BATCH_SIZE, unmatched.size());
+                List<BookMarks> batch = unmatched.subList(batchStart, batchEnd);
+                List<Map<String, Object>> aiResults =
+                        aiClassifyBatch(strategy, batch, apiBaseUrl, apiKey, modelName);
+                Map<String, Map<String, Object>> aiMap = new LinkedHashMap<>();
+                for (Map<String, Object> r : aiResults) {
+                    aiMap.put((String) r.get("bookmarkId"), r);
+                }
+                for (Map<String, Object> item : results) {
+                    if ("unmatched".equals(item.get("source"))) {
+                        Map<String, Object> aiResult = aiMap.get(item.get("bookmarkId"));
+                        if (aiResult != null) {
+                            item.put("suggestedTitle", aiResult.get("suggestedTitle"));
+                            item.put("suggestedFolder", aiResult.get("suggestedFolder"));
+                            item.put("keywords", aiResult.get("keywords"));
+                            item.put("pageType", aiResult.get("pageType"));
+                            item.put("confidence", aiResult.getOrDefault("confidence", 60));
+                            item.put("source", "ai");
+                            item.put("aiReason", aiResult.get("reason"));
+                            aiMatched++;
+                        }
                     }
                 }
             }

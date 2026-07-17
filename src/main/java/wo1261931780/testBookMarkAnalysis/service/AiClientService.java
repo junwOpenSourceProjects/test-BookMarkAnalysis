@@ -40,7 +40,7 @@ public class AiClientService {
         // 构建 Anthropic Messages API 请求体
         JSONObject requestBody = new JSONObject();
         requestBody.set("model", modelName);
-        requestBody.set("max_tokens", 100000);
+        requestBody.set("max_tokens", 8000);
         requestBody.set("temperature", temperature);
 
         // system 是顶层字段
@@ -90,13 +90,20 @@ public class AiClientService {
             responseBodyStr = response.body();
         }
 
-        // 解析 Anthropic 响应格式
+        // 解析 Anthropic 响应格式（跳过 thinking 块，取 text 块）
         JSONObject responseJson = JSONUtil.parseObj(responseBodyStr);
         JSONArray content = responseJson.getJSONArray("content");
         if (content == null || content.isEmpty()) {
             throw new RuntimeException("AI 返回内容为空");
         }
-        String textReply = content.getJSONObject(0).getStr("text");
+        String textReply = null;
+        for (int i = 0; i < content.size(); i++) {
+            JSONObject block = content.getJSONObject(i);
+            if ("text".equals(block.getStr("type"))) {
+                textReply = block.getStr("text");
+                break;
+            }
+        }
         if (textReply == null) {
             throw new RuntimeException("AI 返回格式异常");
         }

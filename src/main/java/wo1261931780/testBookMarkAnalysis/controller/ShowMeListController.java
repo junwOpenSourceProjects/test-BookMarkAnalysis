@@ -419,10 +419,13 @@ public class ShowMeListController {
             boolean useAI = Boolean.TRUE.equals(req.get("useAI"));
 
             @SuppressWarnings("unchecked")
-            List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
+            List<?> rawIds = (List<?>) req.get("bookmarkIds");
             List<Long> bookmarkIds = null;
             if (rawIds != null && !rawIds.isEmpty()) {
-                bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
+                bookmarkIds = rawIds.stream()
+                        .map(Object::toString)
+                        .map(Long::valueOf)
+                        .collect(Collectors.toList());
             }
 
             String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl", bookmarkConfig.getAiApiBaseUrl());
@@ -465,10 +468,13 @@ public class ShowMeListController {
             }
 
             @SuppressWarnings("unchecked")
-            List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
+            List<?> rawIds = (List<?>) req.get("bookmarkIds");
             List<Long> bookmarkIds = null;
             if (rawIds != null && !rawIds.isEmpty()) {
-                bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
+                bookmarkIds = rawIds.stream()
+                        .map(Object::toString)
+                        .map(Long::valueOf)
+                        .collect(Collectors.toList());
             }
 
             List<Map<String, Object>> suggestions =
