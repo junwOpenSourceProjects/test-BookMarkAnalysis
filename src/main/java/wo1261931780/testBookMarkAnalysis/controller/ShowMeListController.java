@@ -407,69 +407,43 @@ public class ShowMeListController {
 
     // ==================== 智能分类接口 ====================
 
-    @Operation(summary = "智能分类预览", description = "按指定策略对书签进行分类预览，返回每个书签的归属文件夹建议")
+    @Autowired
+    private wo1261931780.testBookMarkAnalysis.service.SmartClassificationService smartClassificationService;
+
+    @Operation(summary = "智能分类（规则+AI）", description = "规则引擎优先分类，未匹配项可选 AI 回退。useAI=true 时自动补全标题+分类")
     @PostMapping("/toolbox/classify")
-    public ShowResult<List<Map<String, Object>>> classifyBookmarks(
+    public ShowResult<Map<String, Object>> classifyBookmarks(
             @RequestBody Map<String, Object> req) {
-        String strategy = (String) req.getOrDefault("strategy", "function");
-        @SuppressWarnings("unchecked")
-        List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
-        List<Long> bookmarkIds = null;
-        if (rawIds != null && !rawIds.isEmpty()) {
-            bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
-        }
-        List<BookMarks> bookmarks;
-        if (bookmarkIds != null && !bookmarkIds.isEmpty()) {
-            bookmarks = bookMarksService.listByIds(bookmarkIds);
-        } else {
-            // 未指定 ID 则默认使用全部链接类型书签
-            bookmarks = bookMarksService.list(
-                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>()
-                            .eq(BookMarks::getType, "a"));
-        }
+        try {
+            String strategy = (String) req.getOrDefault("strategy", "function");
+            boolean useAI = Boolean.TRUE.equals(req.get("useAI"));
 
-        List<Map<String, Object>> results = new ArrayList<>();
-        int matched = 0;
-        int unmatched = 0;
-
-        for (BookMarks bm : bookmarks) {
-            Map<String, Object> item = new java.util.LinkedHashMap<>();
-            item.put("bookmarkId", bm.getId() != null ? bm.getId().toString() : "0");
-            item.put("url", bm.getHref());
-            item.put("originalTitle", bm.getTitle());
-            item.put("needsTitle", DomainCategoryMapper.needsTitleGeneration(bm.getTitle()));
-
-            String folderName = null;
-            switch (strategy) {
-                case "domain":
-                    folderName = DomainCategoryMapper.classifyByDomain(bm.getHref());
-                    break;
-                case "region":
-                    folderName = DomainCategoryMapper.classifyByRegion(bm.getHref(), bm.getTitle());
-                    break;
-                case "function":
-                default:
-                    folderName = DomainCategoryMapper.classifyByFunction(bm.getHref());
-                    break;
+            @SuppressWarnings("unchecked")
+            List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
+            List<Long> bookmarkIds = null;
+            if (rawIds != null && !rawIds.isEmpty()) {
+                bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
             }
-            item.put("suggestedFolder", folderName);
 
-            if (folderName != null) {
-                matched++;
-            } else {
-                unmatched++;
-            }
-            results.add(item);
+            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl", bookmarkConfig.getAiApiBaseUrl());
+            String apiKey = (String) req.getOrDefault("apiKey", bookmarkConfig.getAiApiKey());
+            String modelName = (String) req.getOrDefault("modelName", bookmarkConfig.getAiModelName());
+
+            Map<String, Object> result = smartClassificationService.classify(
+                    strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName);
+            return ShowResult.sendSuccess(result);
+        } catch (Exception e) {
+            log.error("智能分类异常", e);
+            return ShowResult.sendError("智能分类失败: " + e.getMessage());
         }
+    }
 
-        Map<String, Object> wrapper = new java.util.LinkedHashMap<>();
-        wrapper.put("strategy", strategy);
-        wrapper.put("total", bookmarks.size());
-        wrapper.put("matched", matched);
-        wrapper.put("unmatched", unmatched);
-        wrapper.put("results", results);
-
-        return ShowResult.sendSuccess(Collections.singletonList(wrapper));
+    @Operation(summary = "应用分类结果", description = "将分类结果写入数据库：创建文件夹、更新标题、移动书签")
+    @PostMapping("/toolbox/applyClassify")
+    public ShowResult<Map<String, Object>> applyClassify(
+            @RequestBody List<Map<String, Object>> results) {
+        Map<String, Object> stats = smartClassificationService.applyResults(results);
+        return ShowResult.sendSuccess(stats);
     }
 
     @Autowired
