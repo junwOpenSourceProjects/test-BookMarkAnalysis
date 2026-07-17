@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,7 @@ import wo1261931780.testBookMarkAnalysis.mapper.BookMarksMapper;
 import wo1261931780.testBookMarkAnalysis.service.BookMarks2Service;
 import wo1261931780.testBookMarkAnalysis.service.BookMarksService;
 import wo1261931780.testBookMarkAnalysis.service.BookmarksParserService;
+import wo1261931780.testBookMarkAnalysis.service.DomainCategoryMapper;
 import wo1261931780.testBookMarkAnalysis.service.LinkCheckService;
 
 /**
@@ -248,16 +250,19 @@ public class ShowMeListController {
 
     @Operation(summary = "工具箱：格式化清空", description = "高危：清空所有书签记录")
     @PostMapping("/toolbox/reset")
-    public ShowResult<Boolean> resetDb() {
+    public ShowResult<Map<String, Object>> resetDb() {
+        long totalBefore = bookMarksService.count();
         // using remove with empty wrapper to delete all safely via Mybatis-plus
         bookMarksService.remove(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<>());
-        return ShowResult.sendSuccess(true);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("deletedCount", totalBefore);
+        return ShowResult.sendSuccess(result);
     }
 
     @Operation(summary = "工具箱：一键去重", description = "查找所有重复 href 的链接，保留最早的记录，删除其他")
     @PostMapping("/toolbox/deduplicate")
-    public ShowResult<Boolean> deduplicate() {
+    public ShowResult<Map<String, Object>> deduplicate() {
         List<BookMarks> all =
                 bookMarksService.list(
                         new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<
@@ -266,8 +271,10 @@ public class ShowMeListController {
         Map<String, List<BookMarks>> grouped =
                 all.stream().collect(Collectors.groupingBy(BookMarks::getHref));
         List<Long> idsToDelete = new ArrayList<>();
+        int duplicateGroups = 0;
         for (List<BookMarks> group : grouped.values()) {
             if (group.size() > 1) {
+                duplicateGroups++;
                 group.sort(
                         Comparator.comparing(
                                 BookMarks::getAddDate, Comparator.nullsLast(Long::compareTo)));
@@ -281,7 +288,11 @@ public class ShowMeListController {
             // 分批清除兜底
             bookMarksService.removeByIds(idsToDelete);
         }
-        return ShowResult.sendSuccess(true);
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("totalChecked", all.size());
+        result.put("duplicateGroups", duplicateGroups);
+        result.put("deletedCount", idsToDelete.size());
+        return ShowResult.sendSuccess(result);
     }
 
     @Autowired
@@ -392,6 +403,73 @@ public class ShowMeListController {
             totalDeleted += emptyFolderIds.size();
         }
         return ShowResult.sendSuccess(totalDeleted);
+    }
+
+    // ==================== 智能分类接口 ====================
+
+    @Operation(summary = "智能分类预览", description = "按指定策略对书签进行分类预览，返回每个书签的归属文件夹建议")
+    @PostMapping("/toolbox/classify")
+    public ShowResult<List<Map<String, Object>>> classifyBookmarks(
+            @RequestBody Map<String, Object> req) {
+        String strategy = (String) req.getOrDefault("strategy", "function");
+        @SuppressWarnings("unchecked")
+        List<Integer> rawIds = (List<Integer>) req.get("bookmarkIds");
+        List<Long> bookmarkIds = null;
+        if (rawIds != null && !rawIds.isEmpty()) {
+            bookmarkIds = rawIds.stream().map(Long::valueOf).collect(Collectors.toList());
+        }
+        List<BookMarks> bookmarks;
+        if (bookmarkIds != null && !bookmarkIds.isEmpty()) {
+            bookmarks = bookMarksService.listByIds(bookmarkIds);
+        } else {
+            // 未指定 ID 则默认使用全部链接类型书签
+            bookmarks = bookMarksService.list(
+                    new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>()
+                            .eq(BookMarks::getType, "a"));
+        }
+
+        List<Map<String, Object>> results = new ArrayList<>();
+        int matched = 0;
+        int unmatched = 0;
+
+        for (BookMarks bm : bookmarks) {
+            Map<String, Object> item = new java.util.LinkedHashMap<>();
+            item.put("bookmarkId", bm.getId() != null ? bm.getId().toString() : "0");
+            item.put("url", bm.getHref());
+            item.put("originalTitle", bm.getTitle());
+            item.put("needsTitle", DomainCategoryMapper.needsTitleGeneration(bm.getTitle()));
+
+            String folderName = null;
+            switch (strategy) {
+                case "domain":
+                    folderName = DomainCategoryMapper.classifyByDomain(bm.getHref());
+                    break;
+                case "region":
+                    folderName = DomainCategoryMapper.classifyByRegion(bm.getHref(), bm.getTitle());
+                    break;
+                case "function":
+                default:
+                    folderName = DomainCategoryMapper.classifyByFunction(bm.getHref());
+                    break;
+            }
+            item.put("suggestedFolder", folderName);
+
+            if (folderName != null) {
+                matched++;
+            } else {
+                unmatched++;
+            }
+            results.add(item);
+        }
+
+        Map<String, Object> wrapper = new java.util.LinkedHashMap<>();
+        wrapper.put("strategy", strategy);
+        wrapper.put("total", bookmarks.size());
+        wrapper.put("matched", matched);
+        wrapper.put("unmatched", unmatched);
+        wrapper.put("results", results);
+
+        return ShowResult.sendSuccess(Collections.singletonList(wrapper));
     }
 
     @Autowired
