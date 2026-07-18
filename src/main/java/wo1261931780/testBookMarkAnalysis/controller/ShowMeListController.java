@@ -410,6 +410,9 @@ public class ShowMeListController {
     @Autowired
     private wo1261931780.testBookMarkAnalysis.service.SmartClassificationService smartClassificationService;
 
+    @Autowired
+    private wo1261931780.testBookMarkAnalysis.service.SmartClassificationTaskService smartClassificationTaskService;
+
     @Operation(summary = "智能分类（规则+AI）", description = "规则引擎优先分类，未匹配项可选 AI 回退。useAI=true 时自动补全标题+分类")
     @PostMapping("/toolbox/classify")
     public ShowResult<Map<String, Object>> classifyBookmarks(
@@ -438,6 +441,71 @@ public class ShowMeListController {
         } catch (Exception e) {
             log.error("智能分类异常", e);
             return ShowResult.sendError("智能分类失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "启动智能分类后台任务", description = "适用于大量书签，立即返回任务ID并通过进度接口查询状态")
+    @PostMapping("/toolbox/classify/start")
+    public ShowResult<Map<String, Object>> startClassifyTask(@RequestBody Map<String, Object> req) {
+        try {
+            String strategy = (String) req.getOrDefault("strategy", "function");
+            boolean useAI = Boolean.TRUE.equals(req.get("useAI"));
+
+            @SuppressWarnings("unchecked")
+            List<?> rawIds = (List<?>) req.get("bookmarkIds");
+            List<Long> bookmarkIds = null;
+            if (rawIds != null && !rawIds.isEmpty()) {
+                bookmarkIds = rawIds.stream()
+                        .map(Object::toString)
+                        .map(Long::valueOf)
+                        .collect(Collectors.toList());
+            }
+
+            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl", bookmarkConfig.getAiApiBaseUrl());
+            String apiKey = (String) req.getOrDefault("apiKey", bookmarkConfig.getAiApiKey());
+            String modelName = (String) req.getOrDefault("modelName", bookmarkConfig.getAiModelName());
+            if (useAI && (apiKey == null || apiKey.isBlank())) {
+                return ShowResult.sendError("未配置 AI API Key");
+            }
+
+            return ShowResult.sendSuccess(smartClassificationTaskService.startTask(
+                    strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName));
+        } catch (Exception e) {
+            log.error("启动智能分类任务异常", e);
+            return ShowResult.sendError("启动智能分类任务失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "查询智能分类任务进度")
+    @GetMapping("/toolbox/classify/task/{taskId}")
+    public ShowResult<Map<String, Object>> getClassifyTaskStatus(@PathVariable String taskId) {
+        Map<String, Object> status = smartClassificationTaskService.getTaskStatus(taskId);
+        return status == null
+                ? ShowResult.sendError("分类任务不存在或已过期")
+                : ShowResult.sendSuccess(status);
+    }
+
+    @Operation(summary = "获取智能分类任务结果预览")
+    @GetMapping("/toolbox/classify/task/{taskId}/result")
+    public ShowResult<Map<String, Object>> getClassifyTaskResult(
+            @PathVariable String taskId,
+            @RequestParam(defaultValue = "200") int limit) {
+        Map<String, Object> result = smartClassificationTaskService.getTaskResult(taskId, limit);
+        return result == null
+                ? ShowResult.sendError("分类任务不存在或已过期")
+                : ShowResult.sendSuccess(result);
+    }
+
+    @Operation(summary = "应用智能分类任务结果", description = "在服务端直接应用完整任务结果，避免前端传输大量书签数据")
+    @PostMapping("/toolbox/classify/task/{taskId}/apply")
+    public ShowResult<Map<String, Object>> applyClassifyTask(@PathVariable String taskId) {
+        try {
+            Map<String, Object> stats = smartClassificationTaskService.applyTaskResults(taskId);
+            return stats == null
+                    ? ShowResult.sendError("分类任务不存在或已过期")
+                    : ShowResult.sendSuccess(stats);
+        } catch (IllegalStateException e) {
+            return ShowResult.sendError(e.getMessage());
         }
     }
 

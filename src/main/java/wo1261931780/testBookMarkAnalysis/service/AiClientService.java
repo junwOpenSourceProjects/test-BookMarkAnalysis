@@ -8,10 +8,10 @@ import org.springframework.stereotype.Service;
 import wo1261931780.testBookMarkAnalysis.config.BookmarkConfig;
 
 /**
- * AI API 客户端 — 统一封装 Anthropic Messages API 调用
+ * AI API 客户端 — 统一封装 OpenAI Chat Completions API 调用
  * <p>
- * 使用 VoltAPI 的 Anthropic 兼容端点：
- * POST /v1/messages，x-api-key 认证，anthropic-version header
+ * 使用 VoltAPI 的 OpenAI 兼容端点：
+ * POST /v1/chat/completions，Authorization Bearer 认证。
  */
 @Service
 public class AiClientService {
@@ -37,19 +37,19 @@ public class AiClientService {
     public JSONArray chat(String systemPrompt, String userContent, double temperature,
                           String apiBaseUrl, String apiKey, String modelName) throws Exception {
 
-        // 构建 Anthropic Messages API 请求体
+        // 构建 OpenAI Chat Completions API 请求体
         JSONObject requestBody = new JSONObject();
         requestBody.set("model", modelName);
         requestBody.set("max_tokens", 8000);
         requestBody.set("temperature", temperature);
 
-        // system 是顶层字段
-        if (systemPrompt != null && !systemPrompt.isBlank()) {
-            requestBody.set("system", systemPrompt);
-        }
-
-        // messages 数组
         JSONArray messages = new JSONArray();
+        if (systemPrompt != null && !systemPrompt.isBlank()) {
+            JSONObject systemMsg = new JSONObject();
+            systemMsg.set("role", "system");
+            systemMsg.set("content", systemPrompt);
+            messages.add(systemMsg);
+        }
         JSONObject userMsg = new JSONObject();
         userMsg.set("role", "user");
         userMsg.set("content", userContent);
@@ -59,14 +59,13 @@ public class AiClientService {
         // API 端点
         String apiEndpoint = apiBaseUrl;
         if (!apiEndpoint.endsWith("/")) apiEndpoint += "/";
-        apiEndpoint += "v1/messages";
+        apiEndpoint += "v1/chat/completions";
 
         // 发送请求
         cn.hutool.http.HttpRequest request =
                 cn.hutool.http.HttpUtil.createPost(apiEndpoint)
                         .header("Content-Type", "application/json; charset=utf-8")
-                        .header("x-api-key", apiKey)
-                        .header("anthropic-version", "2023-06-01")
+                        .header("Authorization", "Bearer " + apiKey)
                         .timeout(300000)
                         .body(requestBody.toString());
 
@@ -104,21 +103,15 @@ public class AiClientService {
             throw new RuntimeException("AI API 请求失败(重试" + maxRetries + "次): " + lastError.getMessage(), lastError);
         }
 
-        // 解析 Anthropic 响应格式（跳过 thinking 块，取 text 块）
+        // 解析 OpenAI Chat Completions 响应格式
         JSONObject responseJson = JSONUtil.parseObj(responseBodyStr);
-        JSONArray content = responseJson.getJSONArray("content");
-        if (content == null || content.isEmpty()) {
+        JSONArray choices = responseJson.getJSONArray("choices");
+        if (choices == null || choices.isEmpty()) {
             throw new RuntimeException("AI 返回内容为空");
         }
-        String textReply = null;
-        for (int i = 0; i < content.size(); i++) {
-            JSONObject block = content.getJSONObject(i);
-            if ("text".equals(block.getStr("type"))) {
-                textReply = block.getStr("text");
-                break;
-            }
-        }
-        if (textReply == null) {
+        JSONObject message = choices.getJSONObject(0).getJSONObject("message");
+        String textReply = message == null ? null : message.getStr("content");
+        if (textReply == null || textReply.isBlank()) {
             throw new RuntimeException("AI 返回格式异常");
         }
 

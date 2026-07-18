@@ -3,6 +3,11 @@ package wo1261931780.testBookMarkAnalysis.service;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Consumer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
@@ -16,8 +21,19 @@ import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 @Service
 public class SmartClassificationService {
 
+    private static final int AI_BATCH_SIZE = 25;
+    private static final int AI_MAX_CONCURRENCY = 3;
+
     @Autowired private BookMarksService bookMarksService;
     @Autowired private AiClientService aiClient;
+
+    public record ClassificationProgress(
+            int total,
+            int ruleMatched,
+            int aiMatched,
+            int unmatched,
+            int completedBatches,
+            int totalBatches) {}
 
     /**
      * 执行完整分类流水线
@@ -33,6 +49,16 @@ public class SmartClassificationService {
     public Map<String, Object> classify(
             String strategy, List<Long> bookmarkIds, boolean useAI,
             String apiBaseUrl, String apiKey, String modelName) throws Exception {
+        return classify(strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName, null);
+    }
+
+    /**
+     * 执行分类并在规则和每个 AI 批次完成后发布进度。
+     */
+    public Map<String, Object> classify(
+            String strategy, List<Long> bookmarkIds, boolean useAI,
+            String apiBaseUrl, String apiKey, String modelName,
+            Consumer<ClassificationProgress> progressConsumer) throws Exception {
 
         // 加载书签
         List<BookMarks> bookmarks;
@@ -69,36 +95,71 @@ public class SmartClassificationService {
             results.add(item);
         }
 
-        // 第2层：AI 回退（分批处理，每批最多 50 条）
+        // 第2层：AI 回退（每批 25 条，最多 3 个批次并行）
         int aiMatched = 0;
-        int AI_BATCH_SIZE = 25;
+        int totalBatches = 0;
         if (useAI && !unmatched.isEmpty() && apiKey != null && !apiKey.isBlank()) {
+            String folderListJson = loadFolderListJson();
+            List<List<BookMarks>> batches = new ArrayList<>();
             for (int batchStart = 0; batchStart < unmatched.size(); batchStart += AI_BATCH_SIZE) {
                 int batchEnd = Math.min(batchStart + AI_BATCH_SIZE, unmatched.size());
-                List<BookMarks> batch = unmatched.subList(batchStart, batchEnd);
-                List<Map<String, Object>> aiResults =
-                        aiClassifyBatch(strategy, batch, apiBaseUrl, apiKey, modelName);
-                Map<String, Map<String, Object>> aiMap = new LinkedHashMap<>();
-                for (Map<String, Object> r : aiResults) {
-                    aiMap.put((String) r.get("bookmarkId"), r);
+                batches.add(new ArrayList<>(unmatched.subList(batchStart, batchEnd)));
+            }
+            totalBatches = batches.size();
+            publishProgress(progressConsumer, bookmarks.size(), ruleMatched, 0,
+                    unmatched.size(), 0, totalBatches);
+
+            ExecutorService executor = Executors.newFixedThreadPool(
+                    Math.min(AI_MAX_CONCURRENCY, batches.size()));
+            try {
+                List<Future<List<Map<String, Object>>>> futures = new ArrayList<>();
+                for (List<BookMarks> batch : batches) {
+                    futures.add(executor.submit(() -> aiClassifyBatch(
+                            strategy, batch, folderListJson, apiBaseUrl, apiKey, modelName)));
                 }
+
+                Map<String, Map<String, Object>> aiMap = new LinkedHashMap<>();
+                int completedBatches = 0;
+                for (Future<List<Map<String, Object>>> future : futures) {
+                    for (Map<String, Object> aiResult : future.get()) {
+                        aiMap.put((String) aiResult.get("bookmarkId"), aiResult);
+                    }
+                    completedBatches++;
+                    publishProgress(progressConsumer, bookmarks.size(), ruleMatched, aiMap.size(),
+                            Math.max(0, unmatched.size() - aiMap.size()), completedBatches, totalBatches);
+                }
+
                 for (Map<String, Object> item : results) {
-                    if ("unmatched".equals(item.get("source"))) {
-                        Map<String, Object> aiResult = aiMap.get(item.get("bookmarkId"));
-                        if (aiResult != null) {
-                            item.put("suggestedTitle", aiResult.get("suggestedTitle"));
-                            item.put("suggestedFolder", aiResult.get("suggestedFolder"));
-                            item.put("keywords", aiResult.get("keywords"));
-                            item.put("pageType", aiResult.get("pageType"));
-                            item.put("confidence", aiResult.getOrDefault("confidence", 60));
-                            item.put("source", "ai");
-                            item.put("aiReason", aiResult.get("reason"));
-                            aiMatched++;
-                        }
+                    if (!"unmatched".equals(item.get("source"))) {
+                        continue;
+                    }
+                    Map<String, Object> aiResult = aiMap.get(item.get("bookmarkId"));
+                    if (aiResult != null) {
+                        item.put("suggestedTitle", aiResult.get("suggestedTitle"));
+                        item.put("suggestedFolder", aiResult.get("suggestedFolder"));
+                        item.put("keywords", aiResult.get("keywords"));
+                        item.put("pageType", aiResult.get("pageType"));
+                        item.put("confidence", aiResult.getOrDefault("confidence", 60));
+                        item.put("source", "ai");
+                        item.put("aiReason", aiResult.get("reason"));
+                        aiMatched++;
                     }
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("AI 批量分类被中断", e);
+            } catch (ExecutionException e) {
+                Throwable cause = e.getCause();
+                if (cause instanceof Exception exception) {
+                    throw exception;
+                }
+                throw new RuntimeException("AI 批量分类失败", cause);
+            } finally {
+                executor.shutdown();
             }
         }
+        publishProgress(progressConsumer, bookmarks.size(), ruleMatched, aiMatched,
+                bookmarks.size() - ruleMatched - aiMatched, totalBatches, totalBatches);
 
         Map<String, Object> wrapper = new LinkedHashMap<>();
         wrapper.put("strategy", strategy);
@@ -108,6 +169,20 @@ public class SmartClassificationService {
         wrapper.put("unmatched", bookmarks.size() - ruleMatched - aiMatched);
         wrapper.put("results", results);
         return wrapper;
+    }
+
+    private void publishProgress(
+            Consumer<ClassificationProgress> progressConsumer,
+            int total,
+            int ruleMatched,
+            int aiMatched,
+            int unmatched,
+            int completedBatches,
+            int totalBatches) {
+        if (progressConsumer != null) {
+            progressConsumer.accept(new ClassificationProgress(
+                    total, ruleMatched, aiMatched, unmatched, completedBatches, totalBatches));
+        }
     }
 
     private String classifyByStrategy(String strategy, BookMarks bm) {
@@ -125,22 +200,24 @@ public class SmartClassificationService {
     /**
      * AI 批量分类 — 标题补全 + 分类一步完成
      */
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> aiClassifyBatch(
-            String strategy, List<BookMarks> bookmarks,
-            String apiBaseUrl, String apiKey, String modelName) throws Exception {
-
-        // 获取现有文件夹列表作为候选
+    private String loadFolderListJson() {
         List<BookMarks> folders = bookMarksService.list(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BookMarks>()
                         .eq(BookMarks::getType, "h3"));
         JSONArray folderList = new JSONArray();
-        for (BookMarks f : folders) {
-            JSONObject obj = new JSONObject();
-            obj.set("id", f.getId() != null ? f.getId().toString() : "0");
-            obj.set("name", f.getTitle());
-            folderList.add(obj);
+        for (BookMarks folder : folders) {
+            JSONObject item = new JSONObject();
+            item.set("id", folder.getId() != null ? folder.getId().toString() : "0");
+            item.set("name", folder.getTitle());
+            folderList.add(item);
         }
+        return folderList.toString();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> aiClassifyBatch(
+            String strategy, List<BookMarks> bookmarks, String folderListJson,
+            String apiBaseUrl, String apiKey, String modelName) throws Exception {
 
         JSONArray bookmarkList = new JSONArray();
         for (BookMarks bm : bookmarks) {
@@ -190,7 +267,7 @@ public class SmartClassificationService {
                 - 90-95：URL 和内容明确，归类清晰
                 - 70-89：URL 可推断但不够明确
                 - 50-69：信息不足，需人工确认
-                """.formatted(strategyDesc, folderList.toString());
+                """.formatted(strategyDesc, folderListJson);
 
         String userContent = "【待分类书签列表】：\n" + bookmarkList.toString();
 
