@@ -37,7 +37,7 @@ bookmark:
   # AI 配置（默认使用 VoltAPI，Anthropic Messages 协议）
   ai-api-base-url: ${BOOKMARK_AI_API_BASE_URL:https://voltapi.ai}
   ai-api-key: ${BOOKMARK_AI_API_KEY:}
-  ai-model-name: ${BOOKMARK_AI_MODEL_NAME:deepseek-v4-flash}
+  ai-model-name: ${BOOKMARK_AI_MODEL_NAME:gpt-5.6-luna}
 
 # 日志配置
 logging:
