@@ -59,6 +59,14 @@ public class SmartClassificationService {
             String strategy, List<Long> bookmarkIds, boolean useAI,
             String apiBaseUrl, String apiKey, String modelName,
             Consumer<ClassificationProgress> progressConsumer) throws Exception {
+        return classify(strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName, progressConsumer, null);
+    }
+
+    public Map<String, Object> classify(
+            String strategy, List<Long> bookmarkIds, boolean useAI,
+            String apiBaseUrl, String apiKey, String modelName,
+            Consumer<ClassificationProgress> progressConsumer,
+            Consumer<List<Map<String, Object>>> batchResultConsumer) throws Exception {
 
         // 加载书签
         List<BookMarks> bookmarks;
@@ -121,8 +129,12 @@ public class SmartClassificationService {
                 Map<String, Map<String, Object>> aiMap = new LinkedHashMap<>();
                 int completedBatches = 0;
                 for (Future<List<Map<String, Object>>> future : futures) {
-                    for (Map<String, Object> aiResult : future.get()) {
+                    List<Map<String, Object>> completedBatch = future.get();
+                    for (Map<String, Object> aiResult : completedBatch) {
                         aiMap.put((String) aiResult.get("bookmarkId"), aiResult);
+                    }
+                    if (batchResultConsumer != null) {
+                        batchResultConsumer.accept(completedBatch);
                     }
                     completedBatches++;
                     publishProgress(progressConsumer, bookmarks.size(), ruleMatched, aiMap.size(),

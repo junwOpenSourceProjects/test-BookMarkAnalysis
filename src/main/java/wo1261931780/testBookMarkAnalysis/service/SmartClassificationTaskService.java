@@ -114,7 +114,8 @@ public class SmartClassificationTaskService {
                     apiBaseUrl,
                     apiKey,
                     modelName,
-                    progress -> updateProgress(task, progress));
+                    progress -> updateProgress(task, progress),
+                    batch -> persistResults(task.persistedTaskId, batch));
 
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> results = (List<Map<String, Object>>) result.getOrDefault("results", List.of());
@@ -123,7 +124,9 @@ public class SmartClassificationTaskService {
             task.ruleMatched = ((Number) result.getOrDefault("ruleMatched", 0)).intValue();
             task.aiMatched = ((Number) result.getOrDefault("aiMatched", 0)).intValue();
             task.unmatched = ((Number) result.getOrDefault("unmatched", 0)).intValue();
-            persistResults(task.persistedTaskId, results);
+            persistResults(task.persistedTaskId, results.stream()
+                    .filter(item -> "rule".equals(item.get("source")))
+                    .toList());
             Map<String, Object> applyStats = smartClassificationService.applyResults(results);
             markResultsApplied(task.persistedTaskId);
             task.status = "COMPLETED";
