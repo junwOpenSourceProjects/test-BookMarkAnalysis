@@ -153,7 +153,7 @@ public class SmartClassificationTaskService {
             entity.setPageType((String) result.get("pageType"));
             entity.setConfidence((Integer) result.get("confidence"));
             entity.setReason((String) result.get("aiReason"));
-            entity.setSource((String) result.get("source"));
+            entity.setSource((String) result.getOrDefault("source", "ai"));
             entity.setStatus("PENDING");
             resultMapper.insert(entity);
         }
