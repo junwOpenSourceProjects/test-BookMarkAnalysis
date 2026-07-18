@@ -2,6 +2,8 @@ package wo1261931780.testBookMarkAnalysis.service;
 
 import cn.hutool.core.util.IdUtil;
 import jakarta.annotation.PreDestroy;
+import cn.hutool.json.JSONUtil;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,6 +13,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import wo1261931780.testBookMarkAnalysis.entity.AiClassificationResult;
+import wo1261931780.testBookMarkAnalysis.entity.AiClassificationTask;
+import wo1261931780.testBookMarkAnalysis.mapper.AiClassificationResultMapper;
+import wo1261931780.testBookMarkAnalysis.mapper.AiClassificationTaskMapper;
 
 /**
  * 智能分类后台任务服务。
@@ -32,6 +38,8 @@ public class SmartClassificationTaskService {
     });
 
     @Autowired private SmartClassificationService smartClassificationService;
+    @Autowired private AiClassificationTaskMapper taskMapper;
+    @Autowired private AiClassificationResultMapper resultMapper;
 
     public Map<String, Object> startTask(
             String strategy,
@@ -41,9 +49,20 @@ public class SmartClassificationTaskService {
             String apiKey,
             String modelName) {
         cleanupExpiredTasks();
-        String taskId = IdUtil.fastSimpleUUID();
-        ClassificationTask task = new ClassificationTask(taskId);
+        Long persistedTaskId = IdUtil.getSnowflakeNextId();
+        String taskId = persistedTaskId.toString();
+        ClassificationTask task = new ClassificationTask(taskId, persistedTaskId);
         tasks.put(taskId, task);
+        AiClassificationTask persistentTask = new AiClassificationTask();
+        persistentTask.setId(persistedTaskId);
+        persistentTask.setStrategy(strategy);
+        persistentTask.setModelName(modelName);
+        persistentTask.setStatus("QUEUED");
+        persistentTask.setTotalCount(0);
+        persistentTask.setRuleMatchedCount(0);
+        persistentTask.setAiMatchedCount(0);
+        persistentTask.setFailedCount(0);
+        taskMapper.insert(persistentTask);
 
         taskExecutor.submit(() -> runTask(task, strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName));
         return snapshot(task, false, 0);
@@ -86,6 +105,7 @@ public class SmartClassificationTaskService {
             String modelName) {
         task.status = "RUNNING";
         task.startedAt = System.currentTimeMillis();
+        updatePersistentTask(task, "RUNNING", null);
         try {
             Map<String, Object> result = smartClassificationService.classify(
                     strategy,
@@ -103,13 +123,62 @@ public class SmartClassificationTaskService {
             task.ruleMatched = ((Number) result.getOrDefault("ruleMatched", 0)).intValue();
             task.aiMatched = ((Number) result.getOrDefault("aiMatched", 0)).intValue();
             task.unmatched = ((Number) result.getOrDefault("unmatched", 0)).intValue();
+            persistResults(task.persistedTaskId, results);
+            Map<String, Object> applyStats = smartClassificationService.applyResults(results);
+            markResultsApplied(task.persistedTaskId);
             task.status = "COMPLETED";
             task.completedAt = System.currentTimeMillis();
+            updatePersistentTask(task, "COMPLETED", null);
         } catch (Exception e) {
             task.status = "FAILED";
             task.errorMessage = e.getMessage();
             task.completedAt = System.currentTimeMillis();
+            updatePersistentTask(task, "FAILED", e.getMessage());
         }
+    }
+
+    private void persistResults(Long taskId, List<Map<String, Object>> results) {
+        for (Map<String, Object> result : results) {
+            AiClassificationResult entity = new AiClassificationResult();
+            entity.setId(IdUtil.getSnowflakeNextId());
+            entity.setTaskId(taskId);
+            entity.setBookmarkId(Long.valueOf(String.valueOf(result.get("bookmarkId"))));
+            entity.setOriginalTitle((String) result.get("originalTitle"));
+            entity.setSuggestedTitle((String) result.get("suggestedTitle"));
+            entity.setSuggestedFolder((String) result.get("suggestedFolder"));
+            entity.setKeywords(result.get("keywords") == null ? null : JSONUtil.toJsonStr(result.get("keywords")));
+            entity.setPageType((String) result.get("pageType"));
+            entity.setConfidence((Integer) result.get("confidence"));
+            entity.setReason((String) result.get("aiReason"));
+            entity.setSource((String) result.get("source"));
+            entity.setStatus("PENDING");
+            resultMapper.insert(entity);
+        }
+    }
+
+    private void markResultsApplied(Long taskId) {
+        List<AiClassificationResult> results = resultMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<AiClassificationResult>()
+                        .eq(AiClassificationResult::getTaskId, taskId));
+        for (AiClassificationResult result : results) {
+            result.setStatus("APPLIED");
+            result.setAppliedAt(LocalDateTime.now());
+            resultMapper.updateById(result);
+        }
+    }
+
+    private void updatePersistentTask(ClassificationTask task, String status, String errorMessage) {
+        AiClassificationTask persistentTask = new AiClassificationTask();
+        persistentTask.setId(task.persistedTaskId);
+        persistentTask.setStatus(status);
+        persistentTask.setTotalCount(task.total);
+        persistentTask.setRuleMatchedCount(task.ruleMatched);
+        persistentTask.setAiMatchedCount(task.aiMatched);
+        persistentTask.setFailedCount(Math.max(0, task.unmatched));
+        persistentTask.setStartedAt(task.startedAt == 0 ? null : LocalDateTime.now());
+        if (task.completedAt > 0) persistentTask.setCompletedAt(LocalDateTime.now());
+        persistentTask.setErrorMessage(errorMessage);
+        taskMapper.updateById(persistentTask);
     }
 
     private void updateProgress(
@@ -120,6 +189,7 @@ public class SmartClassificationTaskService {
         task.unmatched = progress.unmatched();
         task.completedBatches = progress.completedBatches();
         task.totalBatches = progress.totalBatches();
+        updatePersistentTask(task, "RUNNING", null);
     }
 
     private Map<String, Object> snapshot(ClassificationTask task, boolean includeResults, int previewLimit) {
@@ -158,6 +228,7 @@ public class SmartClassificationTaskService {
 
     private static final class ClassificationTask {
         private final String taskId;
+        private final Long persistedTaskId;
         private final long createdAt = System.currentTimeMillis();
         private volatile String status = "QUEUED";
         private volatile int total;
@@ -171,8 +242,9 @@ public class SmartClassificationTaskService {
         private volatile String errorMessage;
         private volatile List<Map<String, Object>> results = List.of();
 
-        private ClassificationTask(String taskId) {
+        private ClassificationTask(String taskId, Long persistedTaskId) {
             this.taskId = taskId;
+            this.persistedTaskId = persistedTaskId;
         }
     }
 }

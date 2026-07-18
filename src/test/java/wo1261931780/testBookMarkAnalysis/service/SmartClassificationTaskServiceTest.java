@@ -18,11 +18,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import wo1261931780.testBookMarkAnalysis.mapper.AiClassificationResultMapper;
+import wo1261931780.testBookMarkAnalysis.mapper.AiClassificationTaskMapper;
 
 @ExtendWith(MockitoExtension.class)
 class SmartClassificationTaskServiceTest {
 
     @Mock private SmartClassificationService smartClassificationService;
+    @Mock private AiClassificationTaskMapper taskMapper;
+    @Mock private AiClassificationResultMapper resultMapper;
     @InjectMocks private SmartClassificationTaskService taskService;
 
     @AfterEach
