@@ -71,7 +71,7 @@ public class SmartClassificationService {
 
         // 第2层：AI 回退（分批处理，每批最多 50 条）
         int aiMatched = 0;
-        int AI_BATCH_SIZE = 50;
+        int AI_BATCH_SIZE = 25;
         if (useAI && !unmatched.isEmpty() && apiKey != null && !apiKey.isBlank()) {
             for (int batchStart = 0; batchStart < unmatched.size(); batchStart += AI_BATCH_SIZE) {
                 int batchEnd = Math.min(batchStart + AI_BATCH_SIZE, unmatched.size());

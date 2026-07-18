@@ -67,7 +67,7 @@ public class AiClientService {
                         .header("Content-Type", "application/json; charset=utf-8")
                         .header("x-api-key", apiKey)
                         .header("anthropic-version", "2023-06-01")
-                        .timeout(120000)
+                        .timeout(300000)
                         .body(requestBody.toString());
 
         // 代理支持
@@ -81,13 +81,27 @@ public class AiClientService {
             } catch (Exception ignored) {}
         }
 
-        String responseBodyStr;
-        try (cn.hutool.http.HttpResponse response = request.execute()) {
-            if (!response.isOk()) {
-                throw new RuntimeException(
-                        "AI API 请求失败: HTTP " + response.getStatus() + " - " + response.body());
+        String responseBodyStr = null;
+        int maxRetries = 3;
+        Exception lastError = null;
+        for (int retry = 0; retry < maxRetries; retry++) {
+            try (cn.hutool.http.HttpResponse response = request.execute()) {
+                if (!response.isOk()) {
+                    throw new RuntimeException(
+                            "AI API 请求失败: HTTP " + response.getStatus() + " - " + response.body());
+                }
+                responseBodyStr = response.body();
+                lastError = null;
+                break;
+            } catch (Exception e) {
+                lastError = e;
+                if (retry < maxRetries - 1) {
+                    Thread.sleep(2000);
+                }
             }
-            responseBodyStr = response.body();
+        }
+        if (lastError != null) {
+            throw new RuntimeException("AI API 请求失败(重试" + maxRetries + "次): " + lastError.getMessage(), lastError);
         }
 
         // 解析 Anthropic 响应格式（跳过 thinking 块，取 text 块）
