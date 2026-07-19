@@ -30,6 +30,9 @@ public class ReclassificationAiService {
     public record ClusterDraftAssignment(
             String bookmarkId, String logicalFolderKey, String folderName) {}
 
+    public record CanonicalFolderAssignment(
+            String draftFolderKey, String logicalFolderKey, String folderName) {}
+
     public AiClientService.AiJsonReply requestLargeDomainFolderName(
             String unitInputJson, String apiBaseUrl, String apiKey, String modelName) throws Exception {
         return aiClient.chatForJsonArray(
@@ -84,6 +87,61 @@ public class ReclassificationAiService {
                 apiBaseUrl,
                 apiKey,
                 modelName);
+    }
+
+    public AiClientService.AiJsonReply requestSmallPoolCanonicalization(
+            String unitInputJson, String apiBaseUrl, String apiKey, String modelName) throws Exception {
+        return aiClient.chatForJsonArray(
+                """
+                你正在合并个人书签整理过程中产生的临时主题目录。输入是多个 draft: 临时目录及名称。
+                每个 draftFolderKey 必须且只能返回一次；语义相同或高度相关的临时目录应映射到同一个最终目录。
+                logicalFolderKey 必须以 small: 开头，后面只能使用小写字母、数字和短横线。
+                folderName 是对应的稳定中文目录名，所有映射到同一 logicalFolderKey 的 folderName 必须一致。
+                严格返回 JSON 数组，不含 Markdown：
+                [{"draftFolderKey":"draft:frontend-tools","logicalFolderKey":"small:frontend-development","folderName":"前端开发与工具"}]
+                """,
+                unitInputJson,
+                0.2,
+                apiBaseUrl,
+                apiKey,
+                modelName);
+    }
+
+    public List<CanonicalFolderAssignment> parseSmallPoolCanonicalization(
+            JSONArray reply, Set<String> expectedDraftFolderKeys) {
+        if (reply == null) {
+            throw new IllegalArgumentException("AI 零散书签最终目录合并结果为空");
+        }
+        Set<String> returnedDraftKeys = new LinkedHashSet<>();
+        java.util.Map<String, String> folderNamesByLogicalKey = new java.util.LinkedHashMap<>();
+        List<CanonicalFolderAssignment> assignments = new ArrayList<>();
+        for (int index = 0; index < reply.size(); index++) {
+            JSONObject item = reply.getJSONObject(index);
+            String draftFolderKey = requireText(item, "draftFolderKey");
+            if (!expectedDraftFolderKeys.contains(draftFolderKey)) {
+                throw new IllegalArgumentException("AI 返回了不属于当前合并单元的临时目录键: " + draftFolderKey);
+            }
+            if (!returnedDraftKeys.add(draftFolderKey)) {
+                throw new IllegalArgumentException("AI 返回了重复临时目录键: " + draftFolderKey);
+            }
+            String logicalFolderKey = requireText(item, "logicalFolderKey");
+            if (!logicalFolderKey.matches("small:[a-z0-9-]{1,96}")) {
+                throw new IllegalArgumentException("AI 返回了不合法的最终目录键: " + logicalFolderKey);
+            }
+            String folderName = requireText(item, "folderName");
+            if (folderName.length() > 512) {
+                throw new IllegalArgumentException("AI 最终目录名称过长");
+            }
+            String priorFolderName = folderNamesByLogicalKey.putIfAbsent(logicalFolderKey, folderName);
+            if (priorFolderName != null && !priorFolderName.equals(folderName)) {
+                throw new IllegalArgumentException("AI 为同一最终目录键返回了不一致的目录名称: " + logicalFolderKey);
+            }
+            assignments.add(new CanonicalFolderAssignment(draftFolderKey, logicalFolderKey, folderName));
+        }
+        if (!returnedDraftKeys.equals(expectedDraftFolderKeys)) {
+            throw new IllegalArgumentException("AI 未返回当前合并单元的全部临时目录映射");
+        }
+        return assignments;
     }
 
     public List<ClusterDraftAssignment> parseSmallPoolClusterDraft(

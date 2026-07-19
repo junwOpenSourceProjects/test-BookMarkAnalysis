@@ -43,6 +43,21 @@ class ReclassificationAiServiceTest {
     }
 
     @Test
+    void parsesCanonicalMappingsAndRequiresEveryDraftFolderExactlyOnce() {
+        var mappings = service.parseSmallPoolCanonicalization(
+                JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"},{\"draftFolderKey\":\"draft:web-development\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
+                Set.of("draft:frontend-tools", "draft:web-development"));
+
+        assertEquals("small:frontend-development", mappings.get(0).logicalFolderKey());
+        assertEquals("前端开发与工具", mappings.get(1).folderName());
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> service.parseSmallPoolCanonicalization(
+                        JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
+                        Set.of("draft:frontend-tools", "draft:web-development")));
+    }
+
+    @Test
     void requiresEveryInputBookmarkToHaveAnAnalysis() {
         assertThrows(
                 IllegalArgumentException.class,

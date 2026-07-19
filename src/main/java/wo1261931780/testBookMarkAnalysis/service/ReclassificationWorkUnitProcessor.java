@@ -2,8 +2,10 @@ package wo1261931780.testBookMarkAnalysis.service;
 
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONUtil;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 import wo1261931780.testBookMarkAnalysis.config.BookmarkConfig;
@@ -60,6 +62,8 @@ public class ReclassificationWorkUnitProcessor {
                         processBookmarkAnalysis(unit, task, apiKey);
                 case ReclassificationConstants.UNIT_SMALL_POOL_CLUSTER_DRAFT ->
                         processSmallPoolClusterDraft(unit, task, apiKey);
+                case ReclassificationConstants.UNIT_SMALL_POOL_CANONICALIZE_FOLDERS ->
+                        processSmallPoolCanonicalization(unit, task, apiKey);
                 default -> throw new IllegalArgumentException("暂不支持的重分类工作单元: " + unit.getUnitKind());
             };
         } catch (Exception exception) {
@@ -109,6 +113,39 @@ public class ReclassificationWorkUnitProcessor {
                 aiService.parseSmallPoolClusterDraft(reply.array(), expectedBookmarkIds(unit.getInputJson()));
         persistenceService.persistSmallPoolDraftAssignments(unit, assignments, reply);
         return 0;
+    }
+
+    private int processSmallPoolCanonicalization(
+            AiReclassificationWorkUnit unit, AiClassificationTask task, String apiKey) throws Exception {
+        AiClientService.AiJsonReply reply = aiService.requestSmallPoolCanonicalization(
+                unit.getInputJson(), task.getApiBaseUrl(), apiKey, task.getModelName());
+        List<ReclassificationAiService.CanonicalFolderAssignment> assignments =
+                aiService.parseSmallPoolCanonicalization(reply.array(), expectedDraftFolderKeys(unit.getInputJson()));
+        persistenceService.persistSmallPoolCanonicalAssignments(unit, assignments, reply);
+        Map<String, String> finalFolders = new LinkedHashMap<>();
+        for (ReclassificationAiService.CanonicalFolderAssignment assignment : assignments) {
+            finalFolders.putIfAbsent(assignment.logicalFolderKey(), assignment.folderName());
+        }
+        for (Map.Entry<String, String> finalFolder : finalFolders.entrySet()) {
+            applicationService.applyFolder(
+                    unit.getTaskId(),
+                    finalFolder.getKey(),
+                    finalFolder.getValue(),
+                    ReclassificationConstants.TASK_PHASE_SMALL_CANONICALIZATION);
+        }
+        return 0;
+    }
+
+    private Set<String> expectedDraftFolderKeys(String inputJson) {
+        cn.hutool.json.JSONObject draftFolders = JSONUtil.parseObj(inputJson).getJSONObject("draftFolders");
+        Set<String> keys = new LinkedHashSet<>();
+        if (draftFolders == null) {
+            return keys;
+        }
+        for (String key : draftFolders.keySet()) {
+            keys.add(key);
+        }
+        return keys;
     }
 
     private Set<String> expectedBookmarkIds(String inputJson) {

@@ -137,6 +137,44 @@ class ReclassificationWorkUnitProcessorTest {
     }
 
     @Test
+    void processesCanonicalizationAndAppliesEachFinalSmallPoolFolder() throws Exception {
+        BookmarkConfig config = new BookmarkConfig();
+        config.setAiApiKey("test-secret");
+        AiClassificationTask task = new AiClassificationTask();
+        task.setId(1L);
+        task.setApiBaseUrl("https://example.test");
+        task.setModelName("test-model");
+        when(taskMapper.selectById(1L)).thenReturn(task);
+        AiReclassificationWorkUnit unit = new AiReclassificationWorkUnit();
+        unit.setId(30L);
+        unit.setTaskId(1L);
+        unit.setUnitKind(ReclassificationConstants.UNIT_SMALL_POOL_CANONICALIZE_FOLDERS);
+        unit.setInputJson("{\"draftFolders\":{\"draft:frontend-tools\":\"前端工具\"}}");
+        AiClientService.AiJsonReply reply = new AiClientService.AiJsonReply("{}", "[]", JSONUtil.createArray());
+        when(aiService.requestSmallPoolCanonicalization(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(reply);
+        List<ReclassificationAiService.CanonicalFolderAssignment> assignments = List.of(
+                new ReclassificationAiService.CanonicalFolderAssignment(
+                        "draft:frontend-tools", "small:frontend-development", "前端开发与工具"));
+        when(aiService.parseSmallPoolCanonicalization(reply.array(), java.util.Set.of("draft:frontend-tools")))
+                .thenReturn(assignments);
+
+        ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+
+        processor.process(unit);
+
+        verify(aiService).requestSmallPoolCanonicalization(
+                unit.getInputJson(), "https://example.test", "test-secret", "test-model");
+        verify(persistenceService).persistSmallPoolCanonicalAssignments(unit, assignments, reply);
+        verify(applicationService).applyFolder(
+                1L,
+                "small:frontend-development",
+                "前端开发与工具",
+                ReclassificationConstants.TASK_PHASE_SMALL_CANONICALIZATION);
+    }
+
+    @Test
     void turnsAiFailureIntoRecoverableTaskAndRetryableUnit() throws Exception {
         BookmarkConfig config = new BookmarkConfig();
         config.setAiApiKey("test-secret");

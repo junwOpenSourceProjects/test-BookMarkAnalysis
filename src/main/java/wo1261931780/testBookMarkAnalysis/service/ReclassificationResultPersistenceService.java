@@ -114,6 +114,28 @@ public class ReclassificationResultPersistenceService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void persistSmallPoolCanonicalAssignments(
+            AiReclassificationWorkUnit unit,
+            List<ReclassificationAiService.CanonicalFolderAssignment> assignments,
+            AiClientService.AiJsonReply reply) {
+        for (ReclassificationAiService.CanonicalFolderAssignment assignment : assignments) {
+            List<AiClassificationResult> draftResults = resultMapper.selectList(
+                    new LambdaQueryWrapper<AiClassificationResult>()
+                            .eq(AiClassificationResult::getTaskId, unit.getTaskId())
+                            .eq(AiClassificationResult::getLogicalFolderKey, assignment.draftFolderKey()));
+            if (draftResults.isEmpty()) {
+                throw new IllegalStateException("最终目录合并缺少临时目录结果: " + assignment.draftFolderKey());
+            }
+            for (AiClassificationResult result : draftResults) {
+                result.setLogicalFolderKey(assignment.logicalFolderKey());
+                result.setSuggestedFolder(assignment.folderName());
+                resultMapper.updateById(result);
+            }
+        }
+        completeUnit(unit, reply);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void markUnitRetryableFailed(AiReclassificationWorkUnit unit, Exception exception) {
         unit.setStatus(ReclassificationConstants.WORK_UNIT_STATUS_RETRYABLE_FAILED);
         unit.setErrorMessage(exception.getMessage());

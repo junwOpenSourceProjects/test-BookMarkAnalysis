@@ -72,6 +72,35 @@ class ReclassificationResultPersistenceServiceTest {
     }
 
     @Test
+    void replacesDraftKeysWithCanonicalKeysBeforeCompletingTheWorkUnit() {
+        AiReclassificationWorkUnit unit = unit(1L, null);
+        AiClassificationResult first = new AiClassificationResult();
+        first.setId(99L);
+        first.setLogicalFolderKey("draft:frontend-tools");
+        AiClassificationResult second = new AiClassificationResult();
+        second.setId(100L);
+        second.setLogicalFolderKey("draft:web-development");
+        when(resultMapper.selectList(any(Wrapper.class))).thenReturn(List.of(first), List.of(second));
+        ReclassificationResultPersistenceService service = new ReclassificationResultPersistenceService(
+                resultMapper, domainGroupMapper, workUnitMapper, planner);
+
+        service.persistSmallPoolCanonicalAssignments(
+                unit,
+                List.of(
+                        new ReclassificationAiService.CanonicalFolderAssignment(
+                                "draft:frontend-tools", "small:frontend-development", "前端开发与工具"),
+                        new ReclassificationAiService.CanonicalFolderAssignment(
+                                "draft:web-development", "small:frontend-development", "前端开发与工具")),
+                new AiClientService.AiJsonReply("{}", "[]", JSONUtil.createArray()));
+
+        assertEquals("small:frontend-development", first.getLogicalFolderKey());
+        assertEquals("small:frontend-development", second.getLogicalFolderKey());
+        assertEquals("前端开发与工具", first.getSuggestedFolder());
+        verify(resultMapper, times(2)).updateById(any(AiClassificationResult.class));
+        verify(workUnitMapper).updateById(unit);
+    }
+
+    @Test
     void persistsSmallPoolDraftAssignmentsWithoutApplyingThemYet() {
         AiReclassificationWorkUnit unit = unit(1L, null);
         AiClassificationResult existing = new AiClassificationResult();
