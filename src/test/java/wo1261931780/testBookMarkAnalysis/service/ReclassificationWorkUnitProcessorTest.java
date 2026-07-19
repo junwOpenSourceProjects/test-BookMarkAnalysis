@@ -106,6 +106,37 @@ class ReclassificationWorkUnitProcessorTest {
     }
 
     @Test
+    void processesSmallPoolDraftAndPersistsTemporaryTopicAssignments() throws Exception {
+        BookmarkConfig config = new BookmarkConfig();
+        config.setAiApiKey("test-secret");
+        AiClassificationTask task = new AiClassificationTask();
+        task.setId(1L);
+        task.setApiBaseUrl("https://example.test");
+        task.setModelName("test-model");
+        when(taskMapper.selectById(1L)).thenReturn(task);
+        AiReclassificationWorkUnit unit = new AiReclassificationWorkUnit();
+        unit.setId(20L);
+        unit.setTaskId(1L);
+        unit.setUnitKind(ReclassificationConstants.UNIT_SMALL_POOL_CLUSTER_DRAFT);
+        unit.setInputJson("{\"bookmarks\":[{\"bookmarkId\":\"1\"}]}");
+        AiClientService.AiJsonReply reply = new AiClientService.AiJsonReply("{}", "[]", JSONUtil.createArray());
+        when(aiService.requestSmallPoolClusterDraft(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(reply);
+        List<ReclassificationAiService.ClusterDraftAssignment> assignments = List.of(
+                new ReclassificationAiService.ClusterDraftAssignment(
+                        "1", "draft:frontend-tools", "前端开发工具"));
+        when(aiService.parseSmallPoolClusterDraft(reply.array(), java.util.Set.of("1")))
+                .thenReturn(assignments);
+
+        ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+
+        processor.process(unit);
+
+        verify(persistenceService).persistSmallPoolDraftAssignments(unit, assignments, reply);
+    }
+
+    @Test
     void turnsAiFailureIntoRecoverableTaskAndRetryableUnit() throws Exception {
         BookmarkConfig config = new BookmarkConfig();
         config.setAiApiKey("test-secret");

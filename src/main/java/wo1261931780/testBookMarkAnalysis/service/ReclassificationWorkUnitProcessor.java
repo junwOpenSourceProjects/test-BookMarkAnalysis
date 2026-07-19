@@ -58,6 +58,8 @@ public class ReclassificationWorkUnitProcessor {
                 case ReclassificationConstants.UNIT_LARGE_DOMAIN_BOOKMARK_ANALYSIS,
                                 ReclassificationConstants.UNIT_SMALL_POOL_BOOKMARK_ANALYSIS ->
                         processBookmarkAnalysis(unit, task, apiKey);
+                case ReclassificationConstants.UNIT_SMALL_POOL_CLUSTER_DRAFT ->
+                        processSmallPoolClusterDraft(unit, task, apiKey);
                 default -> throw new IllegalArgumentException("暂不支持的重分类工作单元: " + unit.getUnitKind());
             };
         } catch (Exception exception) {
@@ -96,6 +98,16 @@ public class ReclassificationWorkUnitProcessor {
                         ReclassificationConstants.TASK_PHASE_LARGE_DOMAINS);
             }
         }
+        return 0;
+    }
+
+    private int processSmallPoolClusterDraft(
+            AiReclassificationWorkUnit unit, AiClassificationTask task, String apiKey) throws Exception {
+        AiClientService.AiJsonReply reply = aiService.requestSmallPoolClusterDraft(
+                unit.getInputJson(), task.getApiBaseUrl(), apiKey, task.getModelName());
+        List<ReclassificationAiService.ClusterDraftAssignment> assignments =
+                aiService.parseSmallPoolClusterDraft(reply.array(), expectedBookmarkIds(unit.getInputJson()));
+        persistenceService.persistSmallPoolDraftAssignments(unit, assignments, reply);
         return 0;
     }
 
