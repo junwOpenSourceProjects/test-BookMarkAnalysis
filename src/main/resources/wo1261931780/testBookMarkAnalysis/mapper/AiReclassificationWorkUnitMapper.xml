@@ -7,4 +7,24 @@
             error_message = COALESCE(error_message, '服务重启前工作单元未完成')
         WHERE status = 'RUNNING'
     </update>
+
+    <select id="selectNextClaimableUnit"
+            resultType="wo1261931780.testBookMarkAnalysis.entity.AiReclassificationWorkUnit">
+        SELECT *
+        FROM bookmark_ai_reclassification_work_unit
+        WHERE task_id = #{taskId}
+          AND status IN ('PENDING', 'RETRYABLE_FAILED')
+        ORDER BY ordinal ASC, id ASC
+        LIMIT 1
+    </select>
+
+    <update id="markUnitRunning">
+        UPDATE bookmark_ai_reclassification_work_unit
+        SET status = 'RUNNING',
+            attempt_count = attempt_count + 1,
+            started_at = NOW(),
+            error_message = NULL
+        WHERE id = #{unitId}
+          AND status IN ('PENDING', 'RETRYABLE_FAILED')
+    </update>
 </mapper>
