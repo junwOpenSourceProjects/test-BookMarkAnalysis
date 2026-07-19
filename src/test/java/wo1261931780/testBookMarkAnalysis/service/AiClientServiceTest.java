@@ -49,6 +49,20 @@ class AiClientServiceTest {
         org.junit.jupiter.api.Assertions.assertTrue(requestBody.get().contains("\"model\":\"gpt-5.6-terra\""));
     }
 
+    @Test
+    void returnsAuditableRequestAndRawModelContentWithoutAuthorizationHeader() throws Exception {
+        AiClientService client = new AiClientService();
+
+        AiClientService.AiJsonReply reply = client.chatForJsonArray(
+                "system prompt", "user prompt", 0.3,
+                apiBaseUrl, "test-api-key", "gpt-5.6-terra");
+
+        assertEquals("[{\"bookmarkId\":\"1\"}]", reply.rawContent());
+        org.junit.jupiter.api.Assertions.assertTrue(reply.requestJson().contains("user prompt"));
+        org.junit.jupiter.api.Assertions.assertFalse(reply.requestJson().contains("test-api-key"));
+        assertEquals("1", reply.array().getJSONObject(0).getStr("bookmarkId"));
+    }
+
     private void handleChatCompletion(HttpExchange exchange) throws IOException {
         authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
         legacyApiKey.set(exchange.getRequestHeaders().getFirst("x-api-key"));
