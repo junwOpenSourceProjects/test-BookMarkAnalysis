@@ -29,4 +29,8 @@ public interface BookMarksMapper extends BaseMapper<BookMarks> {
     List<String> selectAll();
 
     List<BookMarks> selectAllH3();
+
+    int clearParentIdsForLinks();
+
+    int deleteAllFolders();
 }

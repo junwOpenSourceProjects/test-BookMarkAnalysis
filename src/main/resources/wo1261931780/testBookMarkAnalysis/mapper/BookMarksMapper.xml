@@ -194,6 +194,17 @@
 			</if>
 		</trim>
 	</insert>
+	<update id="clearParentIdsForLinks">
+		UPDATE book_marks
+		SET parent_id = NULL
+		WHERE `type` = 'a'
+	</update>
+
+	<delete id="deleteAllFolders">
+		DELETE FROM book_marks
+		WHERE `type` = 'h3'
+	</delete>
+
 	<select id="selectAll" resultType="java.lang.String">
 		select distinct(href) as href
 		from book_marks

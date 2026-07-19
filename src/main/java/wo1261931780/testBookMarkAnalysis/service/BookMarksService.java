@@ -46,4 +46,14 @@ public class BookMarksService extends ServiceImpl<BookMarksMapper, BookMarks> {
     public int insertOrUpdateSelective(BookMarks record) {
         return baseMapper.insertOrUpdateSelective(record);
     }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int clearParentIdsForLinks() {
+        return baseMapper.clearParentIdsForLinks();
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public int deleteAllFolders() {
+        return baseMapper.deleteAllFolders();
+    }
 }
