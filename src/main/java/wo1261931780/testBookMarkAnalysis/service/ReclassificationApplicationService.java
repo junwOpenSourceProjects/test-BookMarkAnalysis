@@ -33,11 +33,16 @@ public class ReclassificationApplicationService {
     @Transactional(rollbackFor = Exception.class)
     public ApplicationStats applyFolder(
             Long taskId, String logicalFolderKey, String folderName, String sourcePhase) {
-        AiReclassificationFolderApplication application = applicationMapper.selectOne(
-                new LambdaQueryWrapper<AiReclassificationFolderApplication>()
-                        .eq(AiReclassificationFolderApplication::getTaskId, taskId)
-                        .eq(AiReclassificationFolderApplication::getLogicalFolderKey, logicalFolderKey));
+        AiReclassificationFolderApplication application =
+                applicationMapper.selectOne(
+                        new LambdaQueryWrapper<AiReclassificationFolderApplication>()
+                                .eq(AiReclassificationFolderApplication::getTaskId, taskId)
+                                .eq(
+                                        AiReclassificationFolderApplication::getLogicalFolderKey,
+                                        logicalFolderKey));
         int createdFolders = 0;
+        int movedBookmarks = 0;
+        int updatedTitles = 0;
         if (application == null) {
             application = new AiReclassificationFolderApplication();
             application.setId(IdUtil.getSnowflakeNextId());
@@ -64,13 +69,12 @@ public class ReclassificationApplicationService {
             createdFolders = 1;
         }
 
-        int movedBookmarks = 0;
-        int updatedTitles = 0;
-        List<AiClassificationResult> pendingResults = resultMapper.selectList(
-                new LambdaQueryWrapper<AiClassificationResult>()
-                        .eq(AiClassificationResult::getTaskId, taskId)
-                        .eq(AiClassificationResult::getLogicalFolderKey, logicalFolderKey)
-                        .eq(AiClassificationResult::getStatus, "PENDING"));
+        List<AiClassificationResult> pendingResults =
+                resultMapper.selectList(
+                        new LambdaQueryWrapper<AiClassificationResult>()
+                                .eq(AiClassificationResult::getTaskId, taskId)
+                                .eq(AiClassificationResult::getLogicalFolderKey, logicalFolderKey)
+                                .eq(AiClassificationResult::getStatus, "PENDING"));
         for (AiClassificationResult result : pendingResults) {
             BookMarks bookmark = new BookMarks();
             bookmark.setId(result.getBookmarkId());
@@ -94,6 +98,32 @@ public class ReclassificationApplicationService {
         application.setStatus(APPLICATION_STATUS_APPLIED);
         application.setAppliedAt(LocalDateTime.now());
         applicationMapper.updateById(application);
+        return new ApplicationStats(createdFolders, movedBookmarks, updatedTitles);
+    }
+
+    public ApplicationStats totalsForTask(Long taskId) {
+        List<AiReclassificationFolderApplication> applications =
+                applicationMapper.selectList(
+                        new LambdaQueryWrapper<AiReclassificationFolderApplication>()
+                                .eq(AiReclassificationFolderApplication::getTaskId, taskId)
+                                .eq(
+                                        AiReclassificationFolderApplication::getStatus,
+                                        APPLICATION_STATUS_APPLIED));
+        int createdFolders = applications.size();
+        int movedBookmarks =
+                Math.toIntExact(
+                        resultMapper.selectCount(
+                                new LambdaQueryWrapper<AiClassificationResult>()
+                                        .eq(AiClassificationResult::getTaskId, taskId)
+                                        .eq(AiClassificationResult::getStatus, "APPLIED")));
+        int updatedTitles =
+                Math.toIntExact(
+                        resultMapper.selectCount(
+                                new LambdaQueryWrapper<AiClassificationResult>()
+                                        .eq(AiClassificationResult::getTaskId, taskId)
+                                        .eq(AiClassificationResult::getStatus, "APPLIED")
+                                        .isNotNull(AiClassificationResult::getSuggestedTitle)
+                                        .ne(AiClassificationResult::getSuggestedTitle, "")));
         return new ApplicationStats(createdFolders, movedBookmarks, updatedTitles);
     }
 

@@ -13,5 +13,12 @@ public interface AiClassificationTaskMapper extends BaseMapper<AiClassificationT
 
     int markRunningTasksRecoverable();
 
-    int markTaskRecoverable(@Param("taskId") Long taskId, @Param("errorMessage") String errorMessage);
+    int markTaskRecoverable(
+            @Param("taskId") Long taskId, @Param("errorMessage") String errorMessage);
+
+    int markTaskRunningIfQueued(@Param("taskId") Long taskId);
+
+    int markTaskCompletedIfRunning(@Param("taskId") Long taskId);
+
+    boolean existsActiveTask();
 }

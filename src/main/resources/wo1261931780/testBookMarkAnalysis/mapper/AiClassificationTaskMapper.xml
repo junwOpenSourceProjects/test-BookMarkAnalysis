@@ -32,4 +32,31 @@
         WHERE id = #{taskId}
           AND status = 'RUNNING'
     </update>
+
+    <update id="markTaskRunningIfQueued">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'RUNNING',
+            started_at = COALESCE(started_at, NOW()),
+            error_message = NULL
+        WHERE id = #{taskId}
+          AND status = 'QUEUED'
+    </update>
+
+    <update id="markTaskCompletedIfRunning">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'COMPLETED',
+            phase = 'APPLYING',
+            completed_at = NOW(),
+            error_message = NULL
+        WHERE id = #{taskId}
+          AND status = 'RUNNING'
+    </update>
+
+    <select id="existsActiveTask" resultType="boolean">
+        SELECT EXISTS(
+            SELECT 1
+            FROM bookmark_ai_classification_task
+            WHERE status IN ('QUEUED', 'RUNNING', 'PAUSED', 'RECOVERABLE')
+        )
+    </select>
 </mapper>

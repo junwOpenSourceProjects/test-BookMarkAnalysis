@@ -36,4 +36,17 @@
           AND unit_kind = 'LARGE_DOMAIN_BOOKMARK_ANALYSIS'
           AND status != 'SUCCEEDED'
     </select>
+
+    <select id="countByTask" resultType="int">
+        SELECT COUNT(*)
+        FROM bookmark_ai_reclassification_work_unit
+        WHERE task_id = #{taskId}
+    </select>
+
+    <select id="countSucceededByTask" resultType="int">
+        SELECT COUNT(*)
+        FROM bookmark_ai_reclassification_work_unit
+        WHERE task_id = #{taskId}
+          AND status = 'SUCCEEDED'
+    </select>
 </mapper>

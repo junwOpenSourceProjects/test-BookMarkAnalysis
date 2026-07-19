@@ -34,6 +34,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import wo1261931780.testBookMarkAnalysis.config.BookmarkConfig;
 import wo1261931780.testBookMarkAnalysis.config.ShowResult;
+import wo1261931780.testBookMarkAnalysis.controller.dto.ReclassificationStartRequest;
+import wo1261931780.testBookMarkAnalysis.controller.dto.ReclassificationTaskResponse;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks;
 import wo1261931780.testBookMarkAnalysis.entity.BookMarks2;
 import wo1261931780.testBookMarkAnalysis.entity.BookmarkAnalysis;
@@ -45,6 +47,7 @@ import wo1261931780.testBookMarkAnalysis.service.BookMarksService;
 import wo1261931780.testBookMarkAnalysis.service.BookmarksParserService;
 import wo1261931780.testBookMarkAnalysis.service.DomainCategoryMapper;
 import wo1261931780.testBookMarkAnalysis.service.LinkCheckService;
+import wo1261931780.testBookMarkAnalysis.service.ResumableReclassificationTaskService;
 
 /**
  * Created by Intellij IDEA. Project:test-BookMarkAnalysis
@@ -66,6 +69,7 @@ public class ShowMeListController {
     @Autowired private BookmarksParserService bookmarksParserService;
     @Autowired private BookmarkConfig bookmarkConfig;
     @Autowired private LinkCheckService linkCheckService;
+    @Autowired private ResumableReclassificationTaskService resumableReclassificationTaskService;
 
     /**
      * 查询所有书签
@@ -507,6 +511,86 @@ public class ShowMeListController {
         } catch (IllegalStateException e) {
             return ShowResult.sendError(e.getMessage());
         }
+    }
+
+    // ==================== 可恢复重分类接口 ====================
+
+    @Operation(summary = "启动可恢复的全量书签重分类", description = "立即清空旧文件夹结构，保留书签链接，并在后台持久化执行 AI 重分类")
+    @PostMapping("/toolbox/reclassification/start")
+    public ShowResult<ReclassificationTaskResponse> startReclassification(
+            @RequestBody(required = false) ReclassificationStartRequest request) {
+        ReclassificationStartRequest effectiveRequest =
+                request == null ? new ReclassificationStartRequest(null, null) : request;
+        return ShowResult.sendSuccess(
+                toReclassificationTaskResponse(
+                        resumableReclassificationTaskService.describe(
+                                resumableReclassificationTaskService.start(
+                                        effectiveRequest.apiBaseUrl(),
+                                        effectiveRequest.modelName()))));
+    }
+
+    @Operation(summary = "暂停可恢复重分类任务")
+    @PostMapping("/toolbox/reclassification/task/{taskId}/pause")
+    public ShowResult<ReclassificationTaskResponse> pauseReclassification(
+            @PathVariable Long taskId) {
+        return ShowResult.sendSuccess(
+                toReclassificationTaskResponse(
+                        resumableReclassificationTaskService.describe(
+                                resumableReclassificationTaskService.pause(taskId))));
+    }
+
+    @Operation(summary = "继续暂停或可恢复的重分类任务")
+    @PostMapping("/toolbox/reclassification/task/{taskId}/resume")
+    public ShowResult<ReclassificationTaskResponse> resumeReclassification(
+            @PathVariable Long taskId) {
+        return ShowResult.sendSuccess(
+                toReclassificationTaskResponse(
+                        resumableReclassificationTaskService.describe(
+                                resumableReclassificationTaskService.resume(taskId))));
+    }
+
+    @Operation(summary = "查询可恢复重分类任务状态")
+    @GetMapping("/toolbox/reclassification/task/{taskId}")
+    public ShowResult<ReclassificationTaskResponse> getReclassificationTask(
+            @PathVariable Long taskId) {
+        return ShowResult.sendSuccess(
+                toReclassificationTaskResponse(
+                        resumableReclassificationTaskService.describe(taskId)));
+    }
+
+    @Operation(summary = "查询暂停或可恢复的重分类任务")
+    @GetMapping("/toolbox/reclassification/recoverable")
+    public ShowResult<List<ReclassificationTaskResponse>> listRecoverableReclassificationTasks() {
+        List<ReclassificationTaskResponse> tasks =
+                resumableReclassificationTaskService.listRecoverable().stream()
+                        .map(resumableReclassificationTaskService::describe)
+                        .map(this::toReclassificationTaskResponse)
+                        .toList();
+        return ShowResult.sendSuccess(tasks);
+    }
+
+    private ReclassificationTaskResponse toReclassificationTaskResponse(
+            ResumableReclassificationTaskService.TaskDetails details) {
+        var task = details.task();
+        return new ReclassificationTaskResponse(
+                String.valueOf(task.getId()),
+                task.getStatus(),
+                task.getPhase(),
+                valueOrZero(task.getTotalCount()),
+                details.totalWorkUnits(),
+                details.completedWorkUnits(),
+                details.largeDomainGroups(),
+                details.smallPoolBookmarks(),
+                valueOrZero(task.getCreatedFolderCount()),
+                valueOrZero(task.getMovedBookmarkCount()),
+                valueOrZero(task.getUpdatedTitleCount()),
+                valueOrZero(task.getRecoveryCount()),
+                task.getTreeClearedAt() == null ? null : task.getTreeClearedAt().toString(),
+                task.getErrorMessage());
+    }
+
+    private int valueOrZero(Integer value) {
+        return value == null ? 0 : value;
     }
 
     @Operation(summary = "应用分类结果", description = "将分类结果写入数据库：创建文件夹、更新标题、移动书签")
