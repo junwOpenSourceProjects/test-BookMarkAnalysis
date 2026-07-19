@@ -67,6 +67,12 @@
 			<artifactId>hutool-all</artifactId>
 			<version>5.8.34</version>
 		</dependency>
+		<!-- Public Suffix List-aware registrable-domain grouping for AI bookmark rebuilds. -->
+		<dependency>
+			<groupId>com.google.guava</groupId>
+			<artifactId>guava</artifactId>
+			<version>33.4.8-jre</version>
+		</dependency>
 		<!--=============================================================================================-->
 		<!--数据库和jdbc-->
 		<!--=============================================================================================-->
