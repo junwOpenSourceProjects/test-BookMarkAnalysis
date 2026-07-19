@@ -24,4 +24,12 @@
             error_message = COALESCE(error_message, '服务重启前任务未完成')
         WHERE status = 'RUNNING'
     </update>
+
+    <update id="markTaskRecoverable">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'RECOVERABLE',
+            error_message = #{errorMessage}
+        WHERE id = #{taskId}
+          AND status = 'RUNNING'
+    </update>
 </mapper>
