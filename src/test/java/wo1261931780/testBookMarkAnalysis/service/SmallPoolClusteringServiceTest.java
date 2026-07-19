@@ -44,6 +44,31 @@ class SmallPoolClusteringServiceTest {
                 units.getAllValues().get(0).getUnitKind());
     }
 
+    @Test
+    void createsOneCanonicalizationUnitForUniqueDraftFolders() {
+        AiClassificationResult first = smallResults(1).get(0);
+        first.setLogicalFolderKey("draft:frontend-tools");
+        first.setSuggestedFolder("前端工具");
+        AiClassificationResult second = smallResults(1).get(0);
+        second.setId(2002L);
+        second.setLogicalFolderKey("draft:frontend-tools");
+        second.setSuggestedFolder("前端工具");
+        when(resultMapper.selectList(any(Wrapper.class))).thenReturn(List.of(first, second));
+        when(workUnitMapper.selectList(any(Wrapper.class))).thenReturn(List.of());
+        SmallPoolClusteringService service = new SmallPoolClusteringService(resultMapper, workUnitMapper);
+
+        int created = service.planCanonicalization(1L);
+
+        assertEquals(1, created);
+        ArgumentCaptor<AiReclassificationWorkUnit> unit =
+                ArgumentCaptor.forClass(AiReclassificationWorkUnit.class);
+        verify(workUnitMapper).insert(unit.capture());
+        assertEquals("small-canonicalize", unit.getValue().getUnitKey());
+        assertEquals(
+                ReclassificationConstants.UNIT_SMALL_POOL_CANONICALIZE_FOLDERS,
+                unit.getValue().getUnitKind());
+    }
+
     private List<AiClassificationResult> smallResults(int count) {
         List<AiClassificationResult> results = new ArrayList<>();
         for (int index = 1; index <= count; index++) {

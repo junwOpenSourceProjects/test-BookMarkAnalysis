@@ -72,6 +72,44 @@ public class SmallPoolClusteringService {
         return created;
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public int planCanonicalization(Long taskId) {
+        List<AiClassificationResult> draftResults = resultMapper.selectList(
+                new LambdaQueryWrapper<AiClassificationResult>()
+                        .eq(AiClassificationResult::getTaskId, taskId)
+                        .likeRight(AiClassificationResult::getLogicalFolderKey, "draft:")
+                        .orderByAsc(AiClassificationResult::getLogicalFolderKey));
+        if (draftResults.isEmpty()) {
+            return 0;
+        }
+        for (AiReclassificationWorkUnit existing : workUnitMapper.selectList(
+                new LambdaQueryWrapper<AiReclassificationWorkUnit>()
+                        .eq(AiReclassificationWorkUnit::getTaskId, taskId)
+                        .eq(
+                                AiReclassificationWorkUnit::getUnitKey,
+                                "small-canonicalize"))) {
+            if ("small-canonicalize".equals(existing.getUnitKey())) {
+                return 0;
+            }
+        }
+        Map<String, String> folders = new LinkedHashMap<>();
+        for (AiClassificationResult result : draftResults) {
+            folders.putIfAbsent(result.getLogicalFolderKey(), result.getSuggestedFolder());
+        }
+        AiReclassificationWorkUnit unit = new AiReclassificationWorkUnit();
+        unit.setId(IdUtil.getSnowflakeNextId());
+        unit.setTaskId(taskId);
+        unit.setUnitKind(ReclassificationConstants.UNIT_SMALL_POOL_CANONICALIZE_FOLDERS);
+        unit.setUnitKey("small-canonicalize");
+        unit.setStatus(ReclassificationConstants.WORK_UNIT_STATUS_PENDING);
+        unit.setOrdinal(1000000);
+        unit.setAttemptCount(0);
+        unit.setPromptVersion(PROMPT_VERSION);
+        unit.setInputJson(JSONUtil.toJsonStr(Map.of("draftFolders", folders)));
+        workUnitMapper.insert(unit);
+        return 1;
+    }
+
     private Map<String, Object> clusterInput(List<AiClassificationResult> results) {
         List<Map<String, Object>> bookmarks = new ArrayList<>();
         for (AiClassificationResult result : results) {
