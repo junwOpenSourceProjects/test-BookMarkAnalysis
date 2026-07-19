@@ -303,6 +303,14 @@
 					</image>
 				</configuration>
 			</plugin>
+			<!-- Byte Buddy 1.15.x needs this opt-in when the project test suite runs on JDK 25. -->
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<argLine>-Dnet.bytebuddy.experimental=true</argLine>
+				</configuration>
+			</plugin>
 			<!-- Spotless 代码格式化插件 -->
 			<plugin>
 				<groupId>com.diffplug.spotless</groupId>

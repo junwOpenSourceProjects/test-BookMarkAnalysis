@@ -52,7 +52,7 @@ class SmartClassificationTaskServiceTest {
                     "unmatched", 0,
                     "results", results);
         }).when(smartClassificationService).classify(
-                anyString(), anyList(), anyBoolean(), anyString(), anyString(), anyString(), any());
+                anyString(), anyList(), anyBoolean(), anyString(), anyString(), anyString(), any(), any());
 
         Map<String, Object> initial = taskService.startTask(
                 "function", List.of(1L, 2L), true, "https://example.test", "test-key", "gpt-5.6-terra");
