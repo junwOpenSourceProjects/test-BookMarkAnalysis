@@ -71,6 +71,29 @@ class ReclassificationResultPersistenceServiceTest {
         verify(workUnitMapper, times(1)).updateById(unit);
     }
 
+    @Test
+    void persistsSmallPoolDraftAssignmentsWithoutApplyingThemYet() {
+        AiReclassificationWorkUnit unit = unit(1L, null);
+        AiClassificationResult existing = new AiClassificationResult();
+        existing.setId(99L);
+        existing.setTaskId(1L);
+        existing.setBookmarkId(10L);
+        when(resultMapper.selectOne(any(Wrapper.class))).thenReturn(existing);
+        ReclassificationResultPersistenceService service = new ReclassificationResultPersistenceService(
+                resultMapper, domainGroupMapper, workUnitMapper, planner);
+
+        service.persistSmallPoolDraftAssignments(
+                unit,
+                List.of(new ReclassificationAiService.ClusterDraftAssignment(
+                        "10", "draft:frontend-tools", "前端开发工具")),
+                new AiClientService.AiJsonReply("{}", "[]", JSONUtil.createArray()));
+
+        assertEquals("draft:frontend-tools", existing.getLogicalFolderKey());
+        assertEquals("前端开发工具", existing.getSuggestedFolder());
+        verify(resultMapper).updateById(existing);
+        verify(workUnitMapper).updateById(unit);
+    }
+
     private AiReclassificationWorkUnit unit(Long taskId, Long groupId) {
         AiReclassificationWorkUnit unit = new AiReclassificationWorkUnit();
         unit.setId(9L);

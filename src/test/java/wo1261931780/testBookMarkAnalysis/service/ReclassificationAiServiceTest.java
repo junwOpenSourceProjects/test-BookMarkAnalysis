@@ -33,6 +33,16 @@ class ReclassificationAiServiceTest {
     }
 
     @Test
+    void parsesDraftAssignmentsWithStableDraftKeys() {
+        var assignments = service.parseSmallPoolClusterDraft(
+                JSONUtil.parseArray("[{\"bookmarkId\":\"1\",\"logicalFolderKey\":\"draft:frontend-tools\",\"folderName\":\"前端开发工具\"}]"),
+                Set.of("1"));
+
+        assertEquals("draft:frontend-tools", assignments.get(0).logicalFolderKey());
+        assertEquals("前端开发工具", assignments.get(0).folderName());
+    }
+
+    @Test
     void requiresEveryInputBookmarkToHaveAnAnalysis() {
         assertThrows(
                 IllegalArgumentException.class,

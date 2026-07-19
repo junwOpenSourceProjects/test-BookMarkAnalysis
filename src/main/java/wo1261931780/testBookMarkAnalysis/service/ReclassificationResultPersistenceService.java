@@ -93,6 +93,27 @@ public class ReclassificationResultPersistenceService {
     }
 
     @Transactional(rollbackFor = Exception.class)
+    public void persistSmallPoolDraftAssignments(
+            AiReclassificationWorkUnit unit,
+            List<ReclassificationAiService.ClusterDraftAssignment> assignments,
+            AiClientService.AiJsonReply reply) {
+        for (ReclassificationAiService.ClusterDraftAssignment assignment : assignments) {
+            Long bookmarkId = Long.valueOf(assignment.bookmarkId());
+            AiClassificationResult result = resultMapper.selectOne(
+                    new LambdaQueryWrapper<AiClassificationResult>()
+                            .eq(AiClassificationResult::getTaskId, unit.getTaskId())
+                            .eq(AiClassificationResult::getBookmarkId, bookmarkId));
+            if (result == null) {
+                throw new IllegalStateException("零散书签草案缺少已分析结果: " + bookmarkId);
+            }
+            result.setLogicalFolderKey(assignment.logicalFolderKey());
+            result.setSuggestedFolder(assignment.folderName());
+            resultMapper.updateById(result);
+        }
+        completeUnit(unit, reply);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
     public void markUnitRetryableFailed(AiReclassificationWorkUnit unit, Exception exception) {
         unit.setStatus(ReclassificationConstants.WORK_UNIT_STATUS_RETRYABLE_FAILED);
         unit.setErrorMessage(exception.getMessage());

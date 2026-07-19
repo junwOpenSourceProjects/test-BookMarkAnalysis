@@ -27,6 +27,9 @@ public class ReclassificationAiService {
             Integer confidence,
             String reason) {}
 
+    public record ClusterDraftAssignment(
+            String bookmarkId, String logicalFolderKey, String folderName) {}
+
     public AiClientService.AiJsonReply requestLargeDomainFolderName(
             String unitInputJson, String apiBaseUrl, String apiKey, String modelName) throws Exception {
         return aiClient.chatForJsonArray(
@@ -65,6 +68,54 @@ public class ReclassificationAiService {
                 apiBaseUrl,
                 apiKey,
                 modelName);
+    }
+
+    public AiClientService.AiJsonReply requestSmallPoolClusterDraft(
+            String unitInputJson, String apiBaseUrl, String apiKey, String modelName) throws Exception {
+        return aiClient.chatForJsonArray(
+                """
+                你正在整理来自多个小域名的零散书签。请按内容主题把每条书签分配到一个临时目录。
+                每个输入 bookmarkId 必须且只能返回一次。logicalFolderKey 必须以 draft: 开头，
+                后面只能使用小写字母、数字和短横线。严格返回 JSON 数组，不含 Markdown：
+                [{"bookmarkId":"原输入ID","logicalFolderKey":"draft:frontend-tools","folderName":"前端开发工具"}]
+                """,
+                unitInputJson,
+                0.2,
+                apiBaseUrl,
+                apiKey,
+                modelName);
+    }
+
+    public List<ClusterDraftAssignment> parseSmallPoolClusterDraft(
+            JSONArray reply, Set<String> expectedBookmarkIds) {
+        if (reply == null) {
+            throw new IllegalArgumentException("AI 零散书签聚类结果为空");
+        }
+        Set<String> returnedIds = new LinkedHashSet<>();
+        List<ClusterDraftAssignment> assignments = new ArrayList<>();
+        for (int index = 0; index < reply.size(); index++) {
+            JSONObject item = reply.getJSONObject(index);
+            String bookmarkId = requireText(item, "bookmarkId");
+            if (!expectedBookmarkIds.contains(bookmarkId)) {
+                throw new IllegalArgumentException("AI 返回了不属于当前草案的书签ID: " + bookmarkId);
+            }
+            if (!returnedIds.add(bookmarkId)) {
+                throw new IllegalArgumentException("AI 返回了重复草案书签ID: " + bookmarkId);
+            }
+            String logicalFolderKey = requireText(item, "logicalFolderKey");
+            if (!logicalFolderKey.matches("draft:[a-z0-9-]{1,96}")) {
+                throw new IllegalArgumentException("AI 返回了不合法的临时目录键: " + logicalFolderKey);
+            }
+            String folderName = requireText(item, "folderName");
+            if (folderName.length() > 512) {
+                throw new IllegalArgumentException("AI 临时目录名称过长");
+            }
+            assignments.add(new ClusterDraftAssignment(bookmarkId, logicalFolderKey, folderName));
+        }
+        if (!returnedIds.equals(expectedBookmarkIds)) {
+            throw new IllegalArgumentException("AI 未返回当前草案的全部书签归类结果");
+        }
+        return assignments;
     }
 
     public FolderNaming parseLargeDomainFolder(JSONArray reply) {
