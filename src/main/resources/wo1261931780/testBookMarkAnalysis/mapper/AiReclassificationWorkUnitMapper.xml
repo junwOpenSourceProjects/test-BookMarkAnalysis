@@ -27,4 +27,13 @@
         WHERE id = #{unitId}
           AND status IN ('PENDING', 'RETRYABLE_FAILED')
     </update>
+
+    <select id="countIncompleteAnalysisUnitsForGroup" resultType="int">
+        SELECT COUNT(*)
+        FROM bookmark_ai_reclassification_work_unit
+        WHERE task_id = #{taskId}
+          AND domain_group_id = #{domainGroupId}
+          AND unit_kind = 'LARGE_DOMAIN_BOOKMARK_ANALYSIS'
+          AND status != 'SUCCEEDED'
+    </select>
 </mapper>

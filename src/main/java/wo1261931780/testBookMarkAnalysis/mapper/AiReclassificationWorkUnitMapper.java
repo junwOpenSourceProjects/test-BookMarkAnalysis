@@ -12,4 +12,7 @@ public interface AiReclassificationWorkUnitMapper extends BaseMapper<AiReclassif
     AiReclassificationWorkUnit selectNextClaimableUnit(@Param("taskId") Long taskId);
 
     int markUnitRunning(@Param("unitId") Long unitId);
+
+    int countIncompleteAnalysisUnitsForGroup(
+            @Param("taskId") Long taskId, @Param("domainGroupId") Long domainGroupId);
 }

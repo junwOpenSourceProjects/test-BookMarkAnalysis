@@ -12,6 +12,7 @@ import wo1261931780.testBookMarkAnalysis.entity.AiReclassificationDomainGroup;
 import wo1261931780.testBookMarkAnalysis.entity.AiReclassificationWorkUnit;
 import wo1261931780.testBookMarkAnalysis.mapper.AiClassificationTaskMapper;
 import wo1261931780.testBookMarkAnalysis.mapper.AiReclassificationDomainGroupMapper;
+import wo1261931780.testBookMarkAnalysis.mapper.AiReclassificationWorkUnitMapper;
 
 @Service
 public class ReclassificationWorkUnitProcessor {
@@ -20,18 +21,24 @@ public class ReclassificationWorkUnitProcessor {
     private final AiReclassificationDomainGroupMapper domainGroupMapper;
     private final ReclassificationAiService aiService;
     private final ReclassificationResultPersistenceService persistenceService;
+    private final AiReclassificationWorkUnitMapper workUnitMapper;
+    private final ReclassificationApplicationService applicationService;
 
     public ReclassificationWorkUnitProcessor(
             BookmarkConfig bookmarkConfig,
             AiClassificationTaskMapper taskMapper,
             AiReclassificationDomainGroupMapper domainGroupMapper,
             ReclassificationAiService aiService,
-            ReclassificationResultPersistenceService persistenceService) {
+            ReclassificationResultPersistenceService persistenceService,
+            AiReclassificationWorkUnitMapper workUnitMapper,
+            ReclassificationApplicationService applicationService) {
         this.bookmarkConfig = bookmarkConfig;
         this.taskMapper = taskMapper;
         this.domainGroupMapper = domainGroupMapper;
         this.aiService = aiService;
         this.persistenceService = persistenceService;
+        this.workUnitMapper = workUnitMapper;
+        this.applicationService = applicationService;
     }
 
     /** Returns newly planned work-unit count; returns zero when no successor was planned. */
@@ -76,6 +83,19 @@ public class ReclassificationWorkUnitProcessor {
                 reply.array(), expectedBookmarkIds(unit.getInputJson()));
         String logicalFolderKey = resolveLogicalFolderKey(unit);
         persistenceService.persistBookmarkAnalyses(unit, logicalFolderKey, analyses, reply);
+        if (unit.getDomainGroupId() != null
+                && workUnitMapper.countIncompleteAnalysisUnitsForGroup(
+                                unit.getTaskId(), unit.getDomainGroupId())
+                        == 0) {
+            AiReclassificationDomainGroup group = domainGroupMapper.selectById(unit.getDomainGroupId());
+            if (group != null && group.getFolderName() != null && group.getLogicalFolderKey() != null) {
+                applicationService.applyFolder(
+                        unit.getTaskId(),
+                        group.getLogicalFolderKey(),
+                        group.getFolderName(),
+                        ReclassificationConstants.TASK_PHASE_LARGE_DOMAINS);
+            }
+        }
         return 0;
     }
 
