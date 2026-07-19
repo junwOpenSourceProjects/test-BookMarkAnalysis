@@ -19,7 +19,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +44,6 @@ import wo1261931780.testBookMarkAnalysis.mapper.BookMarksMapper;
 import wo1261931780.testBookMarkAnalysis.service.BookMarks2Service;
 import wo1261931780.testBookMarkAnalysis.service.BookMarksService;
 import wo1261931780.testBookMarkAnalysis.service.BookmarksParserService;
-import wo1261931780.testBookMarkAnalysis.service.DomainCategoryMapper;
 import wo1261931780.testBookMarkAnalysis.service.LinkCheckService;
 import wo1261931780.testBookMarkAnalysis.service.ResumableReclassificationTaskService;
 
@@ -299,85 +297,6 @@ public class ShowMeListController {
         return ShowResult.sendSuccess(result);
     }
 
-    @Autowired
-    private wo1261931780.testBookMarkAnalysis.service.BookmarkCategorizationService
-            aiCategorizationService;
-
-    @Operation(summary = "工具箱：智能分类补全", description = "使用大语言模型为书签提供归类建议")
-    @PostMapping("/toolbox/ai/categorize")
-    public ShowResult<List<Map<String, Object>>> aiCategorize(
-            @RequestBody Map<String, Object> req) {
-        try {
-            String apiBaseUrl = (String) req.get("apiBaseUrl");
-            String apiKey = (String) req.get("apiKey");
-            String modelName = (String) req.get("modelName");
-            if (apiBaseUrl == null || apiBaseUrl.isBlank()) {
-                apiBaseUrl = bookmarkConfig.getAiApiBaseUrl();
-            }
-            if (apiKey == null || apiKey.isBlank()) {
-                apiKey = bookmarkConfig.getAiApiKey();
-            }
-            if (modelName == null || modelName.isBlank()) {
-                modelName = bookmarkConfig.getAiModelName();
-            }
-            if (apiKey == null || apiKey.isBlank()) {
-                throw new wo1261931780.testBookMarkAnalysis.common.exception.BusinessException(
-                        400, "未配置 AI API Key");
-            }
-
-            List<?> rawIds = (List<?>) req.get("bookmarkIds");
-            if (rawIds == null) {
-                rawIds = (List<?>) req.get("ids");
-            }
-            if (rawIds == null || rawIds.isEmpty()) {
-                throw new wo1261931780.testBookMarkAnalysis.common.exception.BusinessException(
-                        400, "bookmarkIds/ids 不能为空");
-            }
-            List<Long> bookmarkIds =
-                    rawIds.stream()
-                            .map(Object::toString)
-                            .map(Long::parseLong)
-                            .collect(Collectors.toList());
-
-            List<Map<String, Object>> result =
-                    aiCategorizationService.categorizeBookmarks(
-                            apiBaseUrl, apiKey, modelName, bookmarkIds);
-            return ShowResult.sendSuccess(result);
-        } catch (Exception e) {
-            log.error("AI 分类异常", e);
-            return ShowResult.sendError("AI 分析失败: " + e.getMessage());
-        }
-    }
-
-    @Operation(summary = "全局托管初始化", description = "清空旧分类结构，预备生成人工交互批次")
-    @PostMapping("/toolbox/ai/reconstructTree/init")
-    public ShowResult<Map<String, Object>> initReconstructTree() {
-        return ShowResult.sendSuccess(aiCategorizationService.initReconstructTree());
-    }
-
-    @Operation(summary = "获取下一批建议", description = "调用AI同步返回几十条归类推荐供人工确认")
-    @PostMapping("/toolbox/ai/reconstructTree/nextBatch")
-    public ShowResult<List<Map<String, Object>>> fetchNextBatch(
-            @RequestBody Map<String, Object> req) {
-        String apiBaseUrl = (String) req.get("apiBaseUrl");
-        String apiKey = (String) req.get("apiKey");
-        String modelName = (String) req.get("modelName");
-        try {
-            return ShowResult.sendSuccess(
-                    aiCategorizationService.fetchNextBatch(apiBaseUrl, apiKey, modelName));
-        } catch (Exception e) {
-            log.error("AI 批次请求异常", e);
-            return ShowResult.sendError(e.getMessage());
-        }
-    }
-
-    @Operation(summary = "用户手动确认落库", description = "确认当前批次并立即生效入库")
-    @PostMapping("/toolbox/ai/reconstructTree/confirmBatch")
-    public ShowResult<Map<String, Object>> confirmBatch(
-            @RequestBody List<Map<String, Object>> mappings) {
-        return ShowResult.sendSuccess(aiCategorizationService.confirmBatch(mappings));
-    }
-
     @Operation(summary = "工具箱：清理空壳文件夹", description = "递归扫描并删除没有任何所属子元素的空文件夹")
     @PostMapping("/toolbox/clearEmptyFolders")
     public ShowResult<Integer> clearEmptyFolders() {
@@ -407,110 +326,6 @@ public class ShowMeListController {
             totalDeleted += emptyFolderIds.size();
         }
         return ShowResult.sendSuccess(totalDeleted);
-    }
-
-    // ==================== 智能分类接口 ====================
-
-    @Autowired
-    private wo1261931780.testBookMarkAnalysis.service.SmartClassificationService smartClassificationService;
-
-    @Autowired
-    private wo1261931780.testBookMarkAnalysis.service.SmartClassificationTaskService smartClassificationTaskService;
-
-    @Operation(summary = "智能分类（规则+AI）", description = "规则引擎优先分类，未匹配项可选 AI 回退。useAI=true 时自动补全标题+分类")
-    @PostMapping("/toolbox/classify")
-    public ShowResult<Map<String, Object>> classifyBookmarks(
-            @RequestBody Map<String, Object> req) {
-        try {
-            String strategy = (String) req.getOrDefault("strategy", "function");
-            boolean useAI = Boolean.TRUE.equals(req.get("useAI"));
-
-            @SuppressWarnings("unchecked")
-            List<?> rawIds = (List<?>) req.get("bookmarkIds");
-            List<Long> bookmarkIds = null;
-            if (rawIds != null && !rawIds.isEmpty()) {
-                bookmarkIds = rawIds.stream()
-                        .map(Object::toString)
-                        .map(Long::valueOf)
-                        .collect(Collectors.toList());
-            }
-
-            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl", bookmarkConfig.getAiApiBaseUrl());
-            String apiKey = (String) req.getOrDefault("apiKey", bookmarkConfig.getAiApiKey());
-            String modelName = (String) req.getOrDefault("modelName", bookmarkConfig.getAiModelName());
-
-            Map<String, Object> result = smartClassificationService.classify(
-                    strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName);
-            return ShowResult.sendSuccess(result);
-        } catch (Exception e) {
-            log.error("智能分类异常", e);
-            return ShowResult.sendError("智能分类失败: " + e.getMessage());
-        }
-    }
-
-    @Operation(summary = "启动智能分类后台任务", description = "适用于大量书签，立即返回任务ID并通过进度接口查询状态")
-    @PostMapping("/toolbox/classify/start")
-    public ShowResult<Map<String, Object>> startClassifyTask(@RequestBody Map<String, Object> req) {
-        try {
-            String strategy = (String) req.getOrDefault("strategy", "function");
-            boolean useAI = Boolean.TRUE.equals(req.get("useAI"));
-
-            @SuppressWarnings("unchecked")
-            List<?> rawIds = (List<?>) req.get("bookmarkIds");
-            List<Long> bookmarkIds = null;
-            if (rawIds != null && !rawIds.isEmpty()) {
-                bookmarkIds = rawIds.stream()
-                        .map(Object::toString)
-                        .map(Long::valueOf)
-                        .collect(Collectors.toList());
-            }
-
-            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl", bookmarkConfig.getAiApiBaseUrl());
-            String apiKey = (String) req.getOrDefault("apiKey", bookmarkConfig.getAiApiKey());
-            String modelName = (String) req.getOrDefault("modelName", bookmarkConfig.getAiModelName());
-            if (useAI && (apiKey == null || apiKey.isBlank())) {
-                return ShowResult.sendError("未配置 AI API Key");
-            }
-
-            return ShowResult.sendSuccess(smartClassificationTaskService.startTask(
-                    strategy, bookmarkIds, useAI, apiBaseUrl, apiKey, modelName));
-        } catch (Exception e) {
-            log.error("启动智能分类任务异常", e);
-            return ShowResult.sendError("启动智能分类任务失败: " + e.getMessage());
-        }
-    }
-
-    @Operation(summary = "查询智能分类任务进度")
-    @GetMapping("/toolbox/classify/task/{taskId}")
-    public ShowResult<Map<String, Object>> getClassifyTaskStatus(@PathVariable String taskId) {
-        Map<String, Object> status = smartClassificationTaskService.getTaskStatus(taskId);
-        return status == null
-                ? ShowResult.sendError("分类任务不存在或已过期")
-                : ShowResult.sendSuccess(status);
-    }
-
-    @Operation(summary = "获取智能分类任务结果预览")
-    @GetMapping("/toolbox/classify/task/{taskId}/result")
-    public ShowResult<Map<String, Object>> getClassifyTaskResult(
-            @PathVariable String taskId,
-            @RequestParam(defaultValue = "200") int limit) {
-        Map<String, Object> result = smartClassificationTaskService.getTaskResult(taskId, limit);
-        return result == null
-                ? ShowResult.sendError("分类任务不存在或已过期")
-                : ShowResult.sendSuccess(result);
-    }
-
-    @Operation(summary = "应用智能分类任务结果", description = "在服务端直接应用完整任务结果，避免前端传输大量书签数据")
-    @PostMapping("/toolbox/classify/task/{taskId}/apply")
-    public ShowResult<Map<String, Object>> applyClassifyTask(@PathVariable String taskId) {
-        try {
-            Map<String, Object> stats = smartClassificationTaskService.applyTaskResults(taskId);
-            return stats == null
-                    ? ShowResult.sendError("分类任务不存在或已过期")
-                    : ShowResult.sendSuccess(stats);
-        } catch (IllegalStateException e) {
-            return ShowResult.sendError(e.getMessage());
-        }
     }
 
     // ==================== 可恢复重分类接口 ====================
@@ -591,62 +406,6 @@ public class ShowMeListController {
 
     private int valueOrZero(Integer value) {
         return value == null ? 0 : value;
-    }
-
-    @Operation(summary = "应用分类结果", description = "将分类结果写入数据库：创建文件夹、更新标题、移动书签")
-    @PostMapping("/toolbox/applyClassify")
-    public ShowResult<Map<String, Object>> applyClassify(
-            @RequestBody List<Map<String, Object>> results) {
-        Map<String, Object> stats = smartClassificationService.applyResults(results);
-        return ShowResult.sendSuccess(stats);
-    }
-
-    @Autowired
-    private wo1261931780.testBookMarkAnalysis.service.TitleGenerationService titleGenerationService;
-
-    @Operation(summary = "AI 标题补全", description = "对空标题或无意义标题的书签，调用 AI 生成完整标题建议")
-    @PostMapping("/toolbox/generateTitles")
-    public ShowResult<List<Map<String, Object>>> generateTitles(
-            @RequestBody Map<String, Object> req) {
-        try {
-            String apiBaseUrl = (String) req.getOrDefault("apiBaseUrl",
-                    bookmarkConfig.getAiApiBaseUrl());
-            String apiKey = (String) req.getOrDefault("apiKey",
-                    bookmarkConfig.getAiApiKey());
-            String modelName = (String) req.getOrDefault("modelName",
-                    bookmarkConfig.getAiModelName());
-            if (apiKey == null || apiKey.isBlank()) {
-                return ShowResult.sendError("未配置 AI API Key");
-            }
-
-            @SuppressWarnings("unchecked")
-            List<?> rawIds = (List<?>) req.get("bookmarkIds");
-            List<Long> bookmarkIds = null;
-            if (rawIds != null && !rawIds.isEmpty()) {
-                bookmarkIds = rawIds.stream()
-                        .map(Object::toString)
-                        .map(Long::valueOf)
-                        .collect(Collectors.toList());
-            }
-
-            List<Map<String, Object>> suggestions =
-                    titleGenerationService.generateTitles(apiBaseUrl, apiKey, modelName, bookmarkIds);
-            return ShowResult.sendSuccess(suggestions);
-        } catch (Exception e) {
-            log.error("标题补全异常", e);
-            return ShowResult.sendError("标题补全失败: " + e.getMessage());
-        }
-    }
-
-    @Operation(summary = "应用标题补全", description = "将 AI 生成的标题建议写入数据库")
-    @PostMapping("/toolbox/applyTitles")
-    public ShowResult<Map<String, Object>> applyTitles(
-            @RequestBody List<Map<String, Object>> suggestions) {
-        int updated = titleGenerationService.applyTitles(suggestions);
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("updated", updated);
-        result.put("total", suggestions.size());
-        return ShowResult.sendSuccess(result);
     }
 
     @Autowired

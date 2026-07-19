@@ -45,6 +45,23 @@ graph TB
     Service --> Storage
 ```
 
+## AI 全量重新分类（可暂停 / 可恢复）
+
+工具箱中的“AI 重新分类”已切换到数据库持久化的全量目录重建流程：
+
+- 点击开始后，系统会**立即移除旧文件夹结构**，但保留所有链接书签；
+- 按可注册主域名分组；不少于 5 条的域名组保留为独立目录，零散书签由 AI 跨站点聚类；
+- 每个 AI 工作单元、原始响应、进度与应用结果都写入数据库；失败、服务重启或断电后任务会显示为“可恢复”，不会自动继续；
+- 前端可暂停或继续任务；目录创建、书签移动和标题更新会自动、幂等地应用，无需“确认应用”。
+
+**数据库准备：** 新安装或 Docker 初始化会使用已更新的初始化 SQL。已有 MySQL 数据库需要先执行一次：
+
+```bash
+mysql -u root -p bookmarks < sql/migrations/20260719_resumable_ai_reclassification.sql
+```
+
+新的重分类流程的 AI 密钥只从服务端环境变量 `BOOKMARK_AI_API_KEY` 读取，不会通过浏览器请求传递。
+
 ## ✨ 功能特性
 
 | 功能 | 说明 |
@@ -130,7 +147,6 @@ test-BookMarkAnalysis/
 │   │   ├── BookmarksParserService.java
 │   │   ├── LinkCheckService.java
 │   │   ├── DeadLinkScannerService.java
-│   │   ├── BookmarkCategorizationService.java
 │   │   └── impl/                          # 服务实现
 │   ├── mapper/
 │   │   ├── BookMarksMapper.java
@@ -199,7 +215,7 @@ test-BookMarkAnalysis/
 | GET | `/BookMarks/checkLinks?limit=` | 同步死链检测 |
 | POST | `/BookMarks/checkLinks/async` | 异步死链检测 |
 | GET | `/BookMarks/checkLinks/progress/{taskId}` | 查询异步检测进度 |
-| POST | `/BookMarks/toolbox/ai/categorize` | AI 分类 |
+| POST | `/BookMarks/toolbox/reclassification/start` | 启动可暂停、可恢复的 AI 目录重建 |
 | POST | `/BookMarks/toolbox/deduplicate` | 去重 |
 | POST | `/BookMarks/toolbox/reset` | 清空数据 |
 | POST | `/BookMarks/move` | 移动节点 |
