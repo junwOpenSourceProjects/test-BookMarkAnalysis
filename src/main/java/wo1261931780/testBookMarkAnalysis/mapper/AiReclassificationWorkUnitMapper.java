@@ -5,4 +5,6 @@ import org.apache.ibatis.annotations.Mapper;
 import wo1261931780.testBookMarkAnalysis.entity.AiReclassificationWorkUnit;
 
 @Mapper
-public interface AiReclassificationWorkUnitMapper extends BaseMapper<AiReclassificationWorkUnit> {}
+public interface AiReclassificationWorkUnitMapper extends BaseMapper<AiReclassificationWorkUnit> {
+    int markRunningUnitsRetryableFailed();
+}

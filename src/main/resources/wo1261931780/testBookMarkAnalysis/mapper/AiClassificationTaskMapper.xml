@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="wo1261931780.testBookMarkAnalysis.mapper.AiClassificationTaskMapper">
+    <update id="markTaskPausedIfRunning">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'PAUSED', paused_at = NOW()
+        WHERE id = #{taskId}
+          AND status = 'RUNNING'
+    </update>
+
+    <update id="markTaskRunningIfResumable">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'RUNNING',
+            resumed_at = NOW(),
+            recovery_count = recovery_count + CASE WHEN status = 'RECOVERABLE' THEN 1 ELSE 0 END,
+            error_message = NULL
+        WHERE id = #{taskId}
+          AND status IN ('PAUSED', 'RECOVERABLE')
+    </update>
+
+    <update id="markRunningTasksRecoverable">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'RECOVERABLE',
+            error_message = COALESCE(error_message, '服务重启前任务未完成')
+        WHERE status = 'RUNNING'
+    </update>
+</mapper>

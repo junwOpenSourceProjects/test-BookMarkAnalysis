@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="wo1261931780.testBookMarkAnalysis.mapper.AiReclassificationWorkUnitMapper">
+    <update id="markRunningUnitsRetryableFailed">
+        UPDATE bookmark_ai_reclassification_work_unit
+        SET status = 'RETRYABLE_FAILED',
+            error_message = COALESCE(error_message, '服务重启前工作单元未完成')
+        WHERE status = 'RUNNING'
+    </update>
+</mapper>
