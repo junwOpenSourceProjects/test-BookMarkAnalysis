@@ -364,6 +364,16 @@ public class ShowMeListController {
                                 resumableReclassificationTaskService.resume(taskId))));
     }
 
+    @Operation(summary = "继续已完成任务的小域名池归类", description = "复用已持久化的 AI 分析结果，执行零散书签聚类、目录规范化和迁移")
+    @PostMapping("/toolbox/reclassification/task/{taskId}/continue-small-pool")
+    public ShowResult<ReclassificationTaskResponse> continueSmallPoolReclassification(
+            @PathVariable Long taskId) {
+        return ShowResult.sendSuccess(
+                toReclassificationTaskResponse(
+                        resumableReclassificationTaskService.describe(
+                                resumableReclassificationTaskService.continueSmallPool(taskId))));
+    }
+
     @Operation(summary = "查询可恢复重分类任务状态")
     @GetMapping("/toolbox/reclassification/task/{taskId}")
     public ShowResult<ReclassificationTaskResponse> getReclassificationTask(

@@ -3,7 +3,9 @@ package wo1261931780.testBookMarkAnalysis.service;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.List;
 import java.util.Set;
 import org.springframework.stereotype.Service;
@@ -109,11 +111,21 @@ public class ReclassificationAiService {
 
     public List<CanonicalFolderAssignment> parseSmallPoolCanonicalization(
             JSONArray reply, Set<String> expectedDraftFolderKeys) {
+        Map<String, String> draftFolders = new LinkedHashMap<>();
+        for (String draftFolderKey : expectedDraftFolderKeys) {
+            draftFolders.put(draftFolderKey, draftFolderKey);
+        }
+        return parseSmallPoolCanonicalization(reply, draftFolders);
+    }
+
+    public List<CanonicalFolderAssignment> parseSmallPoolCanonicalization(
+            JSONArray reply, Map<String, String> expectedDraftFolders) {
         if (reply == null) {
             throw new IllegalArgumentException("AI 零散书签最终目录合并结果为空");
         }
+        Set<String> expectedDraftFolderKeys = expectedDraftFolders.keySet();
         Set<String> returnedDraftKeys = new LinkedHashSet<>();
-        java.util.Map<String, String> folderNamesByLogicalKey = new java.util.LinkedHashMap<>();
+        Map<String, String> folderNamesByLogicalKey = new LinkedHashMap<>();
         List<CanonicalFolderAssignment> assignments = new ArrayList<>();
         for (int index = 0; index < reply.size(); index++) {
             JSONObject item = reply.getJSONObject(index);
@@ -124,7 +136,8 @@ public class ReclassificationAiService {
             if (!returnedDraftKeys.add(draftFolderKey)) {
                 throw new IllegalArgumentException("AI 返回了重复临时目录键: " + draftFolderKey);
             }
-            String logicalFolderKey = requireText(item, "logicalFolderKey");
+            String logicalFolderKey = normalizePrefixedKey(
+                    requireText(item, "logicalFolderKey"), "small:");
             if (!logicalFolderKey.matches("small:[a-z0-9-]{1,96}")) {
                 throw new IllegalArgumentException("AI 返回了不合法的最终目录键: " + logicalFolderKey);
             }
@@ -132,16 +145,40 @@ public class ReclassificationAiService {
             if (folderName.length() > 512) {
                 throw new IllegalArgumentException("AI 最终目录名称过长");
             }
-            String priorFolderName = folderNamesByLogicalKey.putIfAbsent(logicalFolderKey, folderName);
-            if (priorFolderName != null && !priorFolderName.equals(folderName)) {
-                throw new IllegalArgumentException("AI 为同一最终目录键返回了不一致的目录名称: " + logicalFolderKey);
-            }
-            assignments.add(new CanonicalFolderAssignment(draftFolderKey, logicalFolderKey, folderName));
+            putCanonicalAssignment(
+                    assignments, folderNamesByLogicalKey, draftFolderKey, logicalFolderKey, folderName);
         }
-        if (!returnedDraftKeys.equals(expectedDraftFolderKeys)) {
-            throw new IllegalArgumentException("AI 未返回当前合并单元的全部临时目录映射");
+
+        // Models occasionally omit part of a large canonicalization response. Keep the returned
+        // semantic merges, and safely retain every omitted draft as its own final folder so no
+        // analyzed bookmark remains stranded in PENDING solely because of an incomplete reply.
+        for (Map.Entry<String, String> draftFolder : expectedDraftFolders.entrySet()) {
+            if (returnedDraftKeys.contains(draftFolder.getKey())) {
+                continue;
+            }
+            String fallbackLogicalKey = normalizePrefixedKey(
+                    draftFolder.getKey().replaceFirst("^draft:", ""), "small:");
+            putCanonicalAssignment(
+                    assignments,
+                    folderNamesByLogicalKey,
+                    draftFolder.getKey(),
+                    fallbackLogicalKey,
+                    draftFolder.getValue());
         }
         return assignments;
+    }
+
+    private void putCanonicalAssignment(
+            List<CanonicalFolderAssignment> assignments,
+            Map<String, String> folderNamesByLogicalKey,
+            String draftFolderKey,
+            String logicalFolderKey,
+            String folderName) {
+        String priorFolderName = folderNamesByLogicalKey.putIfAbsent(logicalFolderKey, folderName);
+        if (priorFolderName != null && !priorFolderName.equals(folderName)) {
+            throw new IllegalArgumentException("AI 为同一最终目录键返回了不一致的目录名称: " + logicalFolderKey);
+        }
+        assignments.add(new CanonicalFolderAssignment(draftFolderKey, logicalFolderKey, folderName));
     }
 
     public List<ClusterDraftAssignment> parseSmallPoolClusterDraft(
@@ -160,7 +197,8 @@ public class ReclassificationAiService {
             if (!returnedIds.add(bookmarkId)) {
                 throw new IllegalArgumentException("AI 返回了重复草案书签ID: " + bookmarkId);
             }
-            String logicalFolderKey = requireText(item, "logicalFolderKey");
+            String logicalFolderKey = normalizePrefixedKey(
+                    requireText(item, "logicalFolderKey"), "draft:");
             if (!logicalFolderKey.matches("draft:[a-z0-9-]{1,96}")) {
                 throw new IllegalArgumentException("AI 返回了不合法的临时目录键: " + logicalFolderKey);
             }
@@ -224,6 +262,16 @@ public class ReclassificationAiService {
             throw new IllegalArgumentException("AI 未返回当前工作单元的全部书签分析结果");
         }
         return analyses;
+    }
+
+    private String normalizePrefixedKey(String value, String requiredPrefix) {
+        if (value.startsWith(requiredPrefix)) {
+            return value;
+        }
+        if (value.matches("[a-z0-9-]{1,96}")) {
+            return requiredPrefix + value;
+        }
+        return value;
     }
 
     private String requireText(JSONObject item, String fieldName) {

@@ -16,6 +16,9 @@ public interface AiReclassificationWorkUnitMapper extends BaseMapper<AiReclassif
     int countIncompleteAnalysisUnitsForGroup(
             @Param("taskId") Long taskId, @Param("domainGroupId") Long domainGroupId);
 
+    int countIncompleteByTaskAndKind(
+            @Param("taskId") Long taskId, @Param("unitKind") String unitKind);
+
     int countByTask(@Param("taskId") Long taskId);
 
     int countSucceededByTask(@Param("taskId") Long taskId);

@@ -37,6 +37,14 @@
           AND status != 'SUCCEEDED'
     </select>
 
+    <select id="countIncompleteByTaskAndKind" resultType="int">
+        SELECT COUNT(*)
+        FROM bookmark_ai_reclassification_work_unit
+        WHERE task_id = #{taskId}
+          AND unit_kind = #{unitKind}
+          AND status != 'SUCCEEDED'
+    </select>
+
     <select id="countByTask" resultType="int">
         SELECT COUNT(*)
         FROM bookmark_ai_reclassification_work_unit

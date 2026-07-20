@@ -25,6 +25,7 @@ public class ReclassificationWorkUnitProcessor {
     private final ReclassificationResultPersistenceService persistenceService;
     private final AiReclassificationWorkUnitMapper workUnitMapper;
     private final ReclassificationApplicationService applicationService;
+    private final SmallPoolClusteringService smallPoolClusteringService;
 
     public ReclassificationWorkUnitProcessor(
             BookmarkConfig bookmarkConfig,
@@ -33,7 +34,8 @@ public class ReclassificationWorkUnitProcessor {
             ReclassificationAiService aiService,
             ReclassificationResultPersistenceService persistenceService,
             AiReclassificationWorkUnitMapper workUnitMapper,
-            ReclassificationApplicationService applicationService) {
+            ReclassificationApplicationService applicationService,
+            SmallPoolClusteringService smallPoolClusteringService) {
         this.bookmarkConfig = bookmarkConfig;
         this.taskMapper = taskMapper;
         this.domainGroupMapper = domainGroupMapper;
@@ -41,6 +43,7 @@ public class ReclassificationWorkUnitProcessor {
         this.persistenceService = persistenceService;
         this.workUnitMapper = workUnitMapper;
         this.applicationService = applicationService;
+        this.smallPoolClusteringService = smallPoolClusteringService;
     }
 
     /** Returns newly planned work-unit count; returns zero when no successor was planned. */
@@ -102,6 +105,13 @@ public class ReclassificationWorkUnitProcessor {
                         ReclassificationConstants.TASK_PHASE_LARGE_DOMAINS);
             }
         }
+        if (ReclassificationConstants.UNIT_SMALL_POOL_BOOKMARK_ANALYSIS.equals(unit.getUnitKind())
+                && workUnitMapper.countIncompleteByTaskAndKind(
+                                unit.getTaskId(),
+                                ReclassificationConstants.UNIT_SMALL_POOL_BOOKMARK_ANALYSIS)
+                        == 0) {
+            return smallPoolClusteringService.planClusterDrafts(unit.getTaskId());
+        }
         return 0;
     }
 
@@ -112,6 +122,11 @@ public class ReclassificationWorkUnitProcessor {
         List<ReclassificationAiService.ClusterDraftAssignment> assignments =
                 aiService.parseSmallPoolClusterDraft(reply.array(), expectedBookmarkIds(unit.getInputJson()));
         persistenceService.persistSmallPoolDraftAssignments(unit, assignments, reply);
+        if (workUnitMapper.countIncompleteByTaskAndKind(
+                        unit.getTaskId(), ReclassificationConstants.UNIT_SMALL_POOL_CLUSTER_DRAFT)
+                == 0) {
+            return smallPoolClusteringService.planCanonicalization(unit.getTaskId());
+        }
         return 0;
     }
 
@@ -120,7 +135,7 @@ public class ReclassificationWorkUnitProcessor {
         AiClientService.AiJsonReply reply = aiService.requestSmallPoolCanonicalization(
                 unit.getInputJson(), task.getApiBaseUrl(), apiKey, task.getModelName());
         List<ReclassificationAiService.CanonicalFolderAssignment> assignments =
-                aiService.parseSmallPoolCanonicalization(reply.array(), expectedDraftFolderKeys(unit.getInputJson()));
+                aiService.parseSmallPoolCanonicalization(reply.array(), expectedDraftFolders(unit.getInputJson()));
         persistenceService.persistSmallPoolCanonicalAssignments(unit, assignments, reply);
         Map<String, String> finalFolders = new LinkedHashMap<>();
         for (ReclassificationAiService.CanonicalFolderAssignment assignment : assignments) {
@@ -136,16 +151,16 @@ public class ReclassificationWorkUnitProcessor {
         return 0;
     }
 
-    private Set<String> expectedDraftFolderKeys(String inputJson) {
+    private Map<String, String> expectedDraftFolders(String inputJson) {
         cn.hutool.json.JSONObject draftFolders = JSONUtil.parseObj(inputJson).getJSONObject("draftFolders");
-        Set<String> keys = new LinkedHashSet<>();
+        Map<String, String> folders = new LinkedHashMap<>();
         if (draftFolders == null) {
-            return keys;
+            return folders;
         }
         for (String key : draftFolders.keySet()) {
-            keys.add(key);
+            folders.put(key, draftFolders.getStr(key));
         }
-        return keys;
+        return folders;
     }
 
     private Set<String> expectedBookmarkIds(String inputJson) {

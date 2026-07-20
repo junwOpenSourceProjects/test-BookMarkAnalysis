@@ -18,6 +18,16 @@
           AND status IN ('PAUSED', 'RECOVERABLE')
     </update>
 
+    <update id="markTaskRunningForSmallPoolContinuation">
+        UPDATE bookmark_ai_classification_task
+        SET status = 'RUNNING',
+            phase = 'SMALL_CLUSTER_DRAFTS',
+            completed_at = NULL,
+            error_message = NULL
+        WHERE id = #{taskId}
+          AND status = 'COMPLETED'
+    </update>
+
     <update id="markRunningTasksRecoverable">
         UPDATE bookmark_ai_classification_task
         SET status = 'RECOVERABLE',

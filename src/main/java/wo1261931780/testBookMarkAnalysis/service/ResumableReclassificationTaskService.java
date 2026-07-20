@@ -31,6 +31,7 @@ public class ResumableReclassificationTaskService {
     private final ReclassificationWorkUnitProcessor processor;
     private final ReclassificationTaskControlService controlService;
     private final ReclassificationApplicationService applicationService;
+    private final SmallPoolClusteringService smallPoolClusteringService;
     private final AiClassificationTaskMapper taskMapper;
     private final AiReclassificationWorkUnitMapper workUnitMapper;
     private final AiReclassificationDomainGroupMapper domainGroupMapper;
@@ -44,6 +45,7 @@ public class ResumableReclassificationTaskService {
             ReclassificationWorkUnitProcessor processor,
             ReclassificationTaskControlService controlService,
             ReclassificationApplicationService applicationService,
+            SmallPoolClusteringService smallPoolClusteringService,
             AiClassificationTaskMapper taskMapper,
             AiReclassificationWorkUnitMapper workUnitMapper,
             AiReclassificationDomainGroupMapper domainGroupMapper) {
@@ -54,6 +56,7 @@ public class ResumableReclassificationTaskService {
         this.processor = processor;
         this.controlService = controlService;
         this.applicationService = applicationService;
+        this.smallPoolClusteringService = smallPoolClusteringService;
         this.taskMapper = taskMapper;
         this.workUnitMapper = workUnitMapper;
         this.domainGroupMapper = domainGroupMapper;
@@ -89,6 +92,26 @@ public class ResumableReclassificationTaskService {
     public AiClassificationTask resume(Long taskId) {
         AiClassificationTask task = controlService.resume(taskId);
         submitRunner(task.getId());
+        return task;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AiClassificationTask continueSmallPool(Long taskId) {
+        AiClassificationTask task = requireTask(taskId);
+        if (!ReclassificationConstants.TASK_STATUS_COMPLETED.equals(task.getStatus())) {
+            throw new IllegalStateException("只有已完成但尚未应用零散书签的任务可以继续小域名池处理");
+        }
+        int plannedDrafts = smallPoolClusteringService.planClusterDrafts(taskId);
+        if (plannedDrafts == 0) {
+            throw new IllegalStateException("没有可继续处理的零散书签分析结果");
+        }
+        if (taskMapper.markTaskRunningForSmallPoolContinuation(taskId) != 1) {
+            throw new IllegalStateException("重分类任务状态已变化，请刷新后重试");
+        }
+        task.setStatus(ReclassificationConstants.TASK_STATUS_RUNNING);
+        task.setPhase(ReclassificationConstants.TASK_PHASE_SMALL_CLUSTER_DRAFTS);
+        task.setCompletedAt(null);
+        submitAfterCommit(taskId);
         return task;
     }
 

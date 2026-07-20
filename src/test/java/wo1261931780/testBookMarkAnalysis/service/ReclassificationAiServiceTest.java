@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import cn.hutool.json.JSONUtil;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +44,15 @@ class ReclassificationAiServiceTest {
     }
 
     @Test
+    void normalizesUnprefixedDraftKeyReturnedByTheAi() {
+        var assignments = service.parseSmallPoolClusterDraft(
+                JSONUtil.parseArray("[{\"bookmarkId\":\"1\",\"logicalFolderKey\":\"photoshop-effects\",\"folderName\":\"Photoshop 特效素材\"}]"),
+                Set.of("1"));
+
+        assertEquals("draft:photoshop-effects", assignments.get(0).logicalFolderKey());
+    }
+
+    @Test
     void parsesCanonicalMappingsAndRequiresEveryDraftFolderExactlyOnce() {
         var mappings = service.parseSmallPoolCanonicalization(
                 JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"},{\"draftFolderKey\":\"draft:web-development\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
@@ -50,11 +60,25 @@ class ReclassificationAiServiceTest {
 
         assertEquals("small:frontend-development", mappings.get(0).logicalFolderKey());
         assertEquals("前端开发与工具", mappings.get(1).folderName());
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> service.parseSmallPoolCanonicalization(
-                        JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
-                        Set.of("draft:frontend-tools", "draft:web-development")));
+        var fallbackMappings = service.parseSmallPoolCanonicalization(
+                JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"small:frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
+                Set.of("draft:frontend-tools", "draft:web-development"));
+        assertEquals(2, fallbackMappings.size());
+    }
+
+    @Test
+    void fallsBackToTheDraftFolderWhenTheAiOmitsCanonicalMappings() {
+        var mappings = service.parseSmallPoolCanonicalization(
+                JSONUtil.parseArray("[{\"draftFolderKey\":\"draft:frontend-tools\",\"logicalFolderKey\":\"frontend-development\",\"folderName\":\"前端开发与工具\"}]"),
+                Map.of(
+                        "draft:frontend-tools", "前端开发工具",
+                        "draft:web-development", "网站开发资料"));
+
+        assertEquals(2, mappings.size());
+        assertEquals("small:frontend-development", mappings.get(0).logicalFolderKey());
+        assertEquals("draft:web-development", mappings.get(1).draftFolderKey());
+        assertEquals("small:web-development", mappings.get(1).logicalFolderKey());
+        assertEquals("网站开发资料", mappings.get(1).folderName());
     }
 
     @Test

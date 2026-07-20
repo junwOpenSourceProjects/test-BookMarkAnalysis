@@ -30,6 +30,32 @@ class ResumableReclassificationTaskServiceTest {
     }
 
     @Test
+    void continuesCompletedTaskFromPersistedSmallPoolAnalyses() {
+        AiClassificationTaskMapper taskMapper = mock(AiClassificationTaskMapper.class);
+        AiReclassificationWorkUnitMapper workUnitMapper =
+                mock(AiReclassificationWorkUnitMapper.class);
+        SmallPoolClusteringService smallPoolClusteringService = mock(SmallPoolClusteringService.class);
+        AiClassificationTask task = new AiClassificationTask();
+        task.setId(11L);
+        task.setStatus(ReclassificationConstants.TASK_STATUS_COMPLETED);
+        when(taskMapper.selectById(11L)).thenReturn(task).thenReturn((AiClassificationTask) null);
+        when(smallPoolClusteringService.planClusterDrafts(11L)).thenReturn(62);
+        when(taskMapper.markTaskRunningForSmallPoolContinuation(11L)).thenReturn(1);
+
+        ResumableReclassificationTaskService service = service(
+                taskMapper,
+                workUnitMapper,
+                mock(AiReclassificationDomainGroupMapper.class),
+                smallPoolClusteringService);
+
+        AiClassificationTask continued = service.continueSmallPool(11L);
+
+        assertEquals(ReclassificationConstants.TASK_STATUS_RUNNING, continued.getStatus());
+        verify(smallPoolClusteringService).planClusterDrafts(11L);
+        verify(taskMapper).markTaskRunningForSmallPoolContinuation(11L);
+    }
+
+    @Test
     void describesDurableProgressFromPersistedRows() {
         AiClassificationTaskMapper taskMapper = mock(AiClassificationTaskMapper.class);
         AiReclassificationWorkUnitMapper workUnitMapper =
@@ -72,6 +98,20 @@ class ResumableReclassificationTaskServiceTest {
             AiReclassificationDomainGroupMapper domainGroupMapper) {
         BookmarkConfig config = new BookmarkConfig();
         config.setAiApiKey("test-key");
+        return service(
+                taskMapper,
+                workUnitMapper,
+                domainGroupMapper,
+                mock(SmallPoolClusteringService.class));
+    }
+
+    private ResumableReclassificationTaskService service(
+            AiClassificationTaskMapper taskMapper,
+            AiReclassificationWorkUnitMapper workUnitMapper,
+            AiReclassificationDomainGroupMapper domainGroupMapper,
+            SmallPoolClusteringService smallPoolClusteringService) {
+        BookmarkConfig config = new BookmarkConfig();
+        config.setAiApiKey("test-key");
         return new ResumableReclassificationTaskService(
                 config,
                 mock(BookmarkReclassificationPreparationService.class),
@@ -80,6 +120,7 @@ class ResumableReclassificationTaskServiceTest {
                 mock(ReclassificationWorkUnitProcessor.class),
                 mock(ReclassificationTaskControlService.class),
                 mock(ReclassificationApplicationService.class),
+                smallPoolClusteringService,
                 taskMapper,
                 workUnitMapper,
                 domainGroupMapper);

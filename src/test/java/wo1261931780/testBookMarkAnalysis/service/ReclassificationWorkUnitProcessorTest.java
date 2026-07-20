@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import cn.hutool.json.JSONUtil;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -29,6 +30,7 @@ class ReclassificationWorkUnitProcessorTest {
     @Mock private ReclassificationResultPersistenceService persistenceService;
     @Mock private AiReclassificationWorkUnitMapper workUnitMapper;
     @Mock private ReclassificationApplicationService applicationService;
+    @Mock private SmallPoolClusteringService smallPoolClusteringService;
 
     @Test
     void processesLargeDomainFolderNamingUsingTaskEndpointAndConfiguredSecret() throws Exception {
@@ -57,7 +59,7 @@ class ReclassificationWorkUnitProcessorTest {
         when(persistenceService.persistFolderNaming(unit, reply, naming)).thenReturn(2);
 
         ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
-                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
 
         assertEquals(2, processor.process(unit));
         verify(aiService).requestLargeDomainFolderName(
@@ -98,7 +100,7 @@ class ReclassificationWorkUnitProcessorTest {
                 .thenReturn(new ReclassificationApplicationService.ApplicationStats(1, 1, 1));
 
         ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
-                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
 
         processor.process(unit);
 
@@ -129,11 +131,45 @@ class ReclassificationWorkUnitProcessorTest {
                 .thenReturn(assignments);
 
         ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
-                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
 
         processor.process(unit);
 
         verify(persistenceService).persistSmallPoolDraftAssignments(unit, assignments, reply);
+    }
+
+    @Test
+    void plansSmallPoolDraftsWhenTheLastSmallPoolAnalysisSucceeds() throws Exception {
+        BookmarkConfig config = new BookmarkConfig();
+        config.setAiApiKey("test-secret");
+        AiClassificationTask task = new AiClassificationTask();
+        task.setId(1L);
+        task.setApiBaseUrl("https://example.test");
+        task.setModelName("test-model");
+        when(taskMapper.selectById(1L)).thenReturn(task);
+
+        AiReclassificationWorkUnit unit = new AiReclassificationWorkUnit();
+        unit.setId(20L);
+        unit.setTaskId(1L);
+        unit.setUnitKind(ReclassificationConstants.UNIT_SMALL_POOL_BOOKMARK_ANALYSIS);
+        unit.setInputJson("{\"bookmarks\":[{\"bookmarkId\":\"1\"}]}");
+        AiClientService.AiJsonReply reply = new AiClientService.AiJsonReply("{}", "[]", JSONUtil.createArray());
+        when(aiService.requestBookmarkAnalyses(anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(reply);
+        List<ReclassificationAiService.BookmarkAnalysis> analyses = List.of(
+                new ReclassificationAiService.BookmarkAnalysis("1", "AI 文档", null, "文档", "人工智能", 90, "官方"));
+        when(aiService.parseBookmarkAnalyses(reply.array(), java.util.Set.of("1"))).thenReturn(analyses);
+        when(workUnitMapper.countIncompleteByTaskAndKind(
+                        1L, ReclassificationConstants.UNIT_SMALL_POOL_BOOKMARK_ANALYSIS))
+                .thenReturn(0);
+        when(smallPoolClusteringService.planClusterDrafts(1L)).thenReturn(3);
+
+        ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
+
+        assertEquals(3, processor.process(unit));
+        verify(persistenceService).persistBookmarkAnalyses(unit, "small:pending", analyses, reply);
+        verify(smallPoolClusteringService).planClusterDrafts(1L);
     }
 
     @Test
@@ -156,11 +192,12 @@ class ReclassificationWorkUnitProcessorTest {
         List<ReclassificationAiService.CanonicalFolderAssignment> assignments = List.of(
                 new ReclassificationAiService.CanonicalFolderAssignment(
                         "draft:frontend-tools", "small:frontend-development", "前端开发与工具"));
-        when(aiService.parseSmallPoolCanonicalization(reply.array(), java.util.Set.of("draft:frontend-tools")))
+        when(aiService.parseSmallPoolCanonicalization(
+                        reply.array(), Map.of("draft:frontend-tools", "前端工具")))
                 .thenReturn(assignments);
 
         ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
-                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
 
         processor.process(unit);
 
@@ -193,7 +230,7 @@ class ReclassificationWorkUnitProcessorTest {
                 .thenThrow(new RuntimeException("offline"));
 
         ReclassificationWorkUnitProcessor processor = new ReclassificationWorkUnitProcessor(
-                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService);
+                config, taskMapper, domainGroupMapper, aiService, persistenceService, workUnitMapper, applicationService, smallPoolClusteringService);
 
         assertEquals(0, processor.process(unit));
         verify(persistenceService).markUnitRetryableFailed(any(), any());
