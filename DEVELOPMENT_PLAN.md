@@ -510,6 +510,13 @@ docker-compose logs -f app
 
 **运行前提：** 已有数据库需一次性执行 `sql/migrations/20260719_resumable_ai_reclassification.sql`；AI Key 只通过 `BOOKMARK_AI_API_KEY` 配置。
 
+### 8.5.1 已验证目录整理执行（2026-07-20）✅
+
+- 已完成 AI 重分类结果的第四轮首批领域收拢：`车辆` 与 `成人相关内容`。
+- 已迁移 157 条书签，新增 11 个目标目录、删除 17 个已迁空来源叶子目录；书签总数保持 7,497 条，目录数由 836 降至 830。
+- 已创建迁移标识 `fourth-domain-consolidation-20260720-v1` 的数据库回滚快照；执行记录见 `docs/reviews/2026-07-20-fourth-round-domain-consolidation-execution.md`。
+- 本记录只证明上述本地数据库目录迁移和完整性校验成功；自动化 MySQL/fake-AI 端到端恢复测试仍按上表待补。
+
 ## 九、第五阶段：智能书签分类
 
 ### 9.1 架构设计
